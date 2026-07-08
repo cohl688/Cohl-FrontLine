@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>維港‧灣畔自動更表</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="灣畔更表">
+    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/China_Overseas_Land_and_Investment_logo.svg/1024px-China_Overseas_Land_and_Investment_logo.svg.png">
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 15px; }
+        .container { max-width: 100%; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 6px solid #0056b3; }
+        h2 { text-align: center; color: #0056b3; font-size: 1.2rem; margin-top: 0; }
+        .section { margin-bottom: 15px; padding: 12px; background: #f9f9f9; border-radius: 8px; border-left: 4px solid #0056b3; }
+        label { font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.95rem; }
+        input[type="file"], input[type="date"], input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
+        
+        /* 雙欄輸入設計 */
+        .flex-row { display: flex; gap: 10px; margin-top: 10px; }
+        .flex-row > div { flex: 1; }
+        .flex-row span { font-size: 0.85em; color: #555; display: block; margin-bottom: 4px; font-weight: bold; }
+
+        /* 排序列表樣式 */
+        .unit-row { display: flex; align-items: center; background: #fff; padding: 8px; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .drag-handle { cursor: grab; font-size: 20px; color: #adb5bd; padding: 0 10px 0 5px; user-select: none; }
+        .unit-row input[type="text"] { margin-right: 5px; border: 1px solid #e9ecef; }
+        .unit-row input[type="text"]:focus { border-color: #80bdff; outline: 0; }
+        
+        .btn-del { background: #d9534f; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-add { background: #e9ecef; color: #495057; border: 1px dashed #ced4da; padding: 12px; width: 100%; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
+        button.action-btn { background-color: #0056b3; color: white; border: none; padding: 15px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 100%; margin-bottom: 15px; font-weight: bold; }
+        .copy-btn { background-color: #28a745; }
+        .result-area { height: 250px; background-color: #eef2f5; font-size: 14px; }
+        .save-badge { float: right; font-size: 0.8em; color: #28a745; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏢 維港‧灣畔更表 (PWA)</h2>
+
+    <div class="section">
+        <label>📂 上載 Excel 更表 (.xlsx):</label>
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+        <div id="uploadStatus" style="color:#d9534f; font-size:0.85em; margin-top:5px; font-weight:bold;">⚠️ 未上載</div>
+    </div>
+
+    <div class="section">
+        <label>📅 日期與人數設定:</label>
+        <input type="date" id="dutyDate" onchange="generateMessage()">
+        
+        <div class="flex-row">
+            <div>
+                <span>平日大使人數:</span>
+                <input type="number" id="weekdayAmbassador" value="15" oninput="handleInput()">
+            </div>
+            <div>
+                <span>假日大使人數:</span>
+                <input type="number" id="holidayAmbassador" value="16" oninput="handleInput()">
+            </div>
+        </div>
+
+        <label style="margin-top: 12px; font-weight: normal; color:#d9534f; font-size: 0.9em; display: flex; align-items: center;">
+            <input type="checkbox" id="isHoliday" onchange="generateMessage()" style="width: auto; margin-right: 8px;"> 
+            強制使用假日人數 (例如公眾假期)
+        </label>
+    </div>
+
+    <div class="section">
+        <label>🏠 示範單位設定 <span id="saveBadge" class="save-badge">✅ 已儲存</span><br><span style="font-size: 0.8em; font-weight:normal; color:#6c757d;">(拖拉 ☰ 排序，更改自動記憶成為常規配置)</span></label>
+        
+        <div id="flatsContainer"></div>
+        <button class="btn-add" onclick="addFlat()">+ 新增戶型</button>
+
+        <label style="margin-top: 10px; font-size: 0.9rem;">備註:</label>
+        <textarea id="flat_remarks" oninput="handleInput()" style="height: 80px;"></textarea>
+    </div>
+
+    <textarea id="resultMessage" class="result-area" readonly placeholder="訊息會自動生成..."></textarea>
+    <button class="action-btn copy-btn" onclick="copyToClipboard()">📋 複製 (Copy to WhatsApp)</button>
+</div>
+
+<script>
+    let rosterData = []; 
+    const salesPool = ["Moon", "Joe", "Andrew", "Ankie", "Eric", "Stephen", "Peter"];
+    const internPool = ["Sammi", "Karina", "Renne"];
+
+    const defaultFlats = [
+        { label: "1房", value: "T1A-17C" },
+        { label: "2房（開廚）", value: "T1A-17D, T1A-17E, T1B-17B" },
+        { label: "2房（梗廚）", value: "T1C-17G" },
+        { label: "2房+儲物房（梗廚）", value: "T1B-17A, T2A-17A, T2B-17J, T2A-17J" },
+        { label: "3房1套（開廚）", value: "T5B-17B" },
+        { label: "3房1套+工作間連洗手間", value: "*T1A-17A, T1A-17B, T5B-17A" }
+    ];
+
+    let flats = []; 
+
+    window.onload = function() {
+        document.getElementById('dutyDate').valueAsDate = new Date();
+        loadSettings();
+    };
+
+    function loadSettings() {
+        // 讀取大使人數設定
+        const savedWkAmb = localStorage.getItem('vv_wk_amb_v4');
+        if (savedWkAmb !== null) document.getElementById('weekdayAmbassador').value = savedWkAmb;
+        
+        const savedHolAmb = localStorage.getItem('vv_hol_amb_v4');
+        if (savedHolAmb !== null) document.getElementById('holidayAmbassador').value = savedHolAmb;
+
+        // 讀取單位設定 (會自動繼承上一版 v3 嘅資料，無縫過渡)
+        let savedFlats = localStorage.getItem('vv_flats_v4') || localStorage.getItem('vv_flats_v3');
+        if (savedFlats) {
+            flats = JSON.parse(savedFlats);
+        } else {
+            flats = JSON.parse(JSON.stringify(defaultFlats));
+        }
+        
+        let savedRemarks = localStorage.getItem('vv_remarks_v4') || localStorage.getItem('vv_remarks_v3');
+        document.getElementById('flat_remarks').value = savedRemarks !== null ? savedRemarks : "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
+
+        renderFlats();
+    }
+
+    function renderFlats() {
+        const container = document.getElementById('flatsContainer');
+        container.innerHTML = '';
+        
+        flats.forEach((flat, index) => {
+            container.innerHTML += `
+                <div class="unit-row" data-id="${index}">
+                    <div class="drag-handle">☰</div>
+                    <input type="text" placeholder="戶型 (例: 1房)" value="${flat.label}" oninput="updateFlat(${index}, 'label', this.value)" style="flex:1;">
+                    <input type="text" placeholder="單位號碼" value="${flat.value}" oninput="updateFlat(${index}, 'value', this.value)" style="flex:1.5;">
+                    <button class="btn-del" onclick="deleteFlat(${index})">刪</button>
+                </div>
+            `;
+        });
+        
+        initSortable();
+        generateMessage();
+    }
+
+    function initSortable() {
+        const container = document.getElementById('flatsContainer');
+        new Sortable(container, {
+            handle: '.drag-handle',
+            animation: 150,
+            onEnd: function (evt) {
+                const item = flats.splice(evt.oldIndex, 1)[0];
+                flats.splice(evt.newIndex, 0, item);
+                saveSettings();
+                renderFlats(); 
+            }
+        });
+    }
+
+    function addFlat() {
+        flats.push({ label: "", value: "" });
+        renderFlats();
+        saveSettings();
+    }
+
+    function updateFlat(index, field, value) {
+        flats[index][field] = value;
+        handleInput();
+    }
+
+    function deleteFlat(index) {
+        flats.splice(index, 1);
+        renderFlats();
+        saveSettings();
+    }
+
+    function handleInput() {
+        generateMessage();
+        saveSettings();
+    }
+
+    function saveSettings() {
+        // 儲存全部設定到 v4
+        localStorage.setItem('vv_flats_v4', JSON.stringify(flats));
+        localStorage.setItem('vv_remarks_v4', document.getElementById('flat_remarks').value);
+        localStorage.setItem('vv_wk_amb_v4', document.getElementById('weekdayAmbassador').value);
+        localStorage.setItem('vv_hol_amb_v4', document.getElementById('holidayAmbassador').value);
+
+        const badge = document.getElementById('saveBadge');
+        badge.style.display = 'inline';
+        setTimeout(() => { badge.style.display = 'none'; }, 2000);
+    }
+
+    document.getElementById('excelFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                rosterData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
+                document.getElementById('uploadStatus').innerText = `✅ Excel 讀取成功`;
+                document.getElementById('uploadStatus').style.color = "#28a745";
+                generateMessage();
+            } catch (error) {
+                document.getElementById('uploadStatus').innerText = "❌ 格式錯誤";
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    function generateMessage() {
+        const dateInput = document.getElementById('dutyDate').value;
+        if (!dateInput) return;
+        
+        const d = new Date(dateInput);
+        const weekdayNum = d.getDay(); 
+        const formattedDate = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} (${["日","一","二","三","四","五","六"][weekdayNum]})`;
+
+        // 讀取自訂嘅大使人數
+        const customWkAmb = document.getElementById('weekdayAmbassador').value || "15";
+        const customHolAmb = document.getElementById('holidayAmbassador').value || "16";
+        
+        // 判斷當日是否星期六日，或者勾選了公眾假期
+        let ambassadorCount = (weekdayNum === 0 || weekdayNum === 6 || document.getElementById('isHoliday').checked) ? customHolAmb : customWkAmb;
+
+        let salesToday = [], internToday = [];
+
+        if (rosterData.length > 0) {
+            const targetCol = d.getDate() + 2; 
+            for (let i = 4; i < rosterData.length; i++) {
+                let row = rosterData[i];
+                if (!row || !row[0]) continue; 
+                let cellName = String(row[0]), shiftValue = String(row[targetCol] || "").trim().toUpperCase();
+                
+                if (shiftValue.includes('VV') || shiftValue.includes('VW')) {
+                    salesPool.forEach(n => { if (cellName.includes(n) && !salesToday.includes(n)) salesToday.push(n); });
+                    internPool.forEach(n => { if (cellName.includes(n) && !internToday.includes(n)) internToday.push(n); });
+                }
+            }
+        } else {
+            document.getElementById('resultMessage').value = "請先上載 Excel 檔案。"; return;
+        }
+
+        let showflatText = "";
+        flats.forEach(flat => {
+            if (flat.label.trim() && flat.value.trim()) {
+                showflatText += `${flat.label}：${flat.value}\n`;
+            }
+        });
+
+        showflatText += `\n${document.getElementById('flat_remarks').value.trim()}`;
+
+        document.getElementById('resultMessage').value = `維港‧灣畔現樓\n${formattedDate}\n\n⏰當值時間：10:30pm-7:00pm\n\n👤當值人員\n銷售 ：${salesToday.length?salesToday.join(', ')+' ('+salesToday.length+'人)':'無 (0人)'}\n實習生：${internToday.length?internToday.join(', ')+' ('+internToday.length+'人)':'無 (0人)'}\n服務大使：${ambassadorCount}人\n清潔：3人\n\n「開放示範單位」：\n${showflatText}`;
+    }
+
+    function copyToClipboard() {
+        const t = document.getElementById('resultMessage');
+        t.select(); t.setSelectionRange(0, 99999); 
+        navigator.clipboard.writeText(t.value).then(() => alert("✅ 已複製")).catch(() => alert("請手動複製"));
+    }
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed: ', err));
+        });
+    }
+</script>
+</body>
+</html>
