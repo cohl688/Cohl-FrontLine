@@ -1,5 +1,5 @@
-// 已升級至 v7，全面引入三分頁設計及 Word Logo
-const CACHE_NAME = 'vv-roster-v7';
+// 已升級至 v8，全面引入跑道成交過濾及本地 Logo 功能
+const CACHE_NAME = 'vv-roster-v8';
 
 const urlsToCache = [
   './index.html',

@@ -15,22 +15,22 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 15px; }
-        .container { max-width: 100%; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 6px solid #333; }
-        h2 { text-align: center; color: #333; font-size: 1.2rem; margin-top: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 12px; }
+        .container { max-width: 100%; margin: 0 auto; background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 6px solid #333; }
+        h2 { text-align: center; color: #333; font-size: 1.1rem; margin-top: 0; margin-bottom: 15px; }
         
         .section { margin-bottom: 15px; padding: 12px; background: #f9f9f9; border-radius: 8px; border-left: 4px solid #333; }
         label { font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.95rem; }
-        input[type="file"], input[type="date"], input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
+        input[type="file"], input[type="date"], input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
         
-        /* 三分頁選單樣式 */
+        /* 四分頁選單樣式 */
         .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; border-radius: 5px 5px 0 0; overflow: hidden; }
-        .tab-btn { flex: 1; padding: 10px; background: #eef2f5; border: none; cursor: pointer; font-weight: bold; color: #555; font-size: 14px; transition: 0.3s; border-right: 1px solid #ddd; }
+        .tab-btn { flex: 1; padding: 10px 5px; background: #eef2f5; border: none; cursor: pointer; font-weight: bold; color: #555; font-size: 12px; transition: 0.3s; border-right: 1px solid #ddd; }
         .tab-btn:last-child { border-right: none; }
-        /* 針對不同 Tab 的活躍顏色 */
         .tab-btn.active[data-target="vvTab"] { background: #0056b3; color: white; }
         .tab-btn.active[data-target="tvTab"] { background: #d4af37; color: white; }
         .tab-btn.active[data-target="hrTab"] { background: #28a745; color: white; }
+        .tab-btn.active[data-target="marketTab"] { background: #8e44ad; color: white; }
         
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
@@ -40,19 +40,22 @@
         .flex-row > div { flex: 1; }
         .flex-row span { font-size: 0.85em; color: #555; display: block; margin-bottom: 4px; font-weight: bold; }
 
-        .unit-row { display: flex; align-items: center; background: #fff; padding: 8px; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .unit-row { display: flex; align-items: center; background: #fff; padding: 8px; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; }
         .drag-handle { cursor: grab; font-size: 20px; color: #adb5bd; padding: 0 10px 0 5px; user-select: none; }
         .unit-row input[type="text"] { margin-right: 5px; border: 1px solid #e9ecef; }
         
-        .btn-del { background: #d9534f; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn-add { background: #e9ecef; color: #495057; border: 1px dashed #ced4da; padding: 12px; width: 100%; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
+        .btn-del { background: #d9534f; color: white; border: none; padding: 10px; border-radius: 5px; font-weight: bold; }
+        .btn-add { background: #e9ecef; color: #495057; border: 1px dashed #ced4da; padding: 12px; width: 100%; border-radius: 5px; font-weight: bold; margin-bottom: 15px; }
         
-        button.action-btn { color: white; border: none; padding: 15px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 100%; margin-bottom: 15px; font-weight: bold; }
+        button.action-btn { color: white; border: none; padding: 15px; font-size: 16px; border-radius: 5px; width: 100%; margin-bottom: 15px; font-weight: bold; }
         button.vv-btn { background-color: #0056b3; }
         button.tv-btn { background-color: #d4af37; }
         button.hr-btn { background-color: #28a745; }
+        button.market-btn { background-color: #8e44ad; }
+        
         .result-area { height: 250px; background-color: #eef2f5; font-size: 14px; }
         .save-badge { float: right; font-size: 0.8em; color: #28a745; display: none; }
+        #logoPreview { max-width: 150px; margin-top: 10px; border: 1px solid #ccc; border-radius: 4px; display: none; }
     </style>
 </head>
 <body>
@@ -60,25 +63,26 @@
 <div class="container">
     <h2>🏢 中海現樓 綜合管理系統</h2>
 
-    <div class="section" style="border-left-color: #333; background: #f0f0f0;">
-        <label>📂 第一步：上載 Excel 更表 (.xlsx)</label>
+    <div class="tabs">
+        <button class="tab-btn active" data-target="vvTab" onclick="switchTab('vvTab', this)">🏢 灣畔</button>
+        <button class="tab-btn" data-target="tvTab" onclick="switchTab('tvTab', this)">💎 雙鑽</button>
+        <button class="tab-btn" data-target="hrTab" onclick="switchTab('hrTab', this)">📄 HR</button>
+        <button class="tab-btn" data-target="marketTab" onclick="switchTab('marketTab', this)">📊 成交</button>
+    </div>
+
+    <div id="globalUpload" class="section" style="border-left-color: #333; background: #f0f0f0;">
+        <label>📂 上載 Excel 更表 (.xlsx) [灣畔/雙鑽/HR共用]</label>
         <input type="file" id="excelFile" accept=".xlsx, .xls">
         <div id="uploadStatus" style="color:#d9534f; font-size:0.85em; margin-top:5px; font-weight:bold;">⚠️ 未上載更表</div>
     </div>
 
-    <div class="tabs">
-        <button class="tab-btn active" data-target="vvTab" onclick="switchTab('vvTab', this)">🏢 灣畔更表</button>
-        <button class="tab-btn" data-target="tvTab" onclick="switchTab('tvTab', this)">💎 雙鑽更表</button>
-        <button class="tab-btn" data-target="hrTab" onclick="switchTab('hrTab', this)">📄 HR匯出</button>
-    </div>
-
     <div id="vvTab" class="tab-content active">
         <div class="section" style="border-left-color: #0056b3;">
-            <label>📅 日期與人數設定 (灣畔):</label>
+            <label>📅 日期與人數設定:</label>
             <input type="date" id="vvDutyDate" onchange="generateMessage('vv')">
             <div class="flex-row">
-                <div><span>平日大使人數:</span><input type="number" id="vvWeekdayAmb" value="15" oninput="handleInput('vv')"></div>
-                <div><span>假日大使人數:</span><input type="number" id="vvHolidayAmb" value="16" oninput="handleInput('vv')"></div>
+                <div><span>平日大使:</span><input type="number" id="vvWeekdayAmb" value="15" oninput="handleInput('vv')"></div>
+                <div><span>假日大使:</span><input type="number" id="vvHolidayAmb" value="16" oninput="handleInput('vv')"></div>
             </div>
             <label style="margin-top: 12px; font-weight: normal; color:#d9534f; font-size: 0.9em; display: flex; align-items: center;">
                 <input type="checkbox" id="vvIsHoliday" onchange="generateMessage('vv')" style="width: auto; margin-right: 8px;"> 
@@ -90,21 +94,19 @@
             <label>🏠 示範單位設定 <span id="vvSaveBadge" class="save-badge">✅ 已儲存</span></label>
             <div id="vvFlatsContainer"></div>
             <button class="btn-add" onclick="addFlat('vv')">+ 新增戶型</button>
-            <label style="margin-top: 10px; font-size: 0.9rem;">備註:</label>
-            <textarea id="vv_remarks" oninput="handleInput('vv')" style="height: 80px;"></textarea>
+            <textarea id="vv_remarks" oninput="handleInput('vv')" style="height: 60px;" placeholder="備註..."></textarea>
         </div>
-
         <textarea id="vvResultMessage" class="result-area" readonly placeholder="請先上載 Excel..."></textarea>
-        <button class="action-btn vv-btn" onclick="copyToClipboard('vv')">📋 複製 (Copy to WhatsApp)</button>
+        <button class="action-btn vv-btn" onclick="copyToClipboard('vvResultMessage')">📋 複製 (Copy to WhatsApp)</button>
     </div>
 
     <div id="tvTab" class="tab-content">
         <div class="section" style="border-left-color: #d4af37; background: #fdfbf7;">
-            <label>📅 日期與人數設定 (雙鑽):</label>
+            <label>📅 日期與人數設定:</label>
             <input type="date" id="tvDutyDate" onchange="generateMessage('tv')">
             <div class="flex-row">
-                <div><span>平日大使人數:</span><input type="number" id="tvWeekdayAmb" value="3" oninput="handleInput('tv')"></div>
-                <div><span>假日大使人數:</span><input type="number" id="tvHolidayAmb" value="4" oninput="handleInput('tv')"></div>
+                <div><span>平日大使:</span><input type="number" id="tvWeekdayAmb" value="3" oninput="handleInput('tv')"></div>
+                <div><span>假日大使:</span><input type="number" id="tvHolidayAmb" value="4" oninput="handleInput('tv')"></div>
             </div>
             <label style="margin-top: 12px; font-weight: normal; color:#d9534f; font-size: 0.9em; display: flex; align-items: center;">
                 <input type="checkbox" id="tvIsHoliday" onchange="generateMessage('tv')" style="width: auto; margin-right: 8px;"> 
@@ -116,15 +118,20 @@
             <label style="color: #8b6508;">🏠 示範單位設定 <span id="tvSaveBadge" class="save-badge">✅ 已儲存</span></label>
             <div id="tvFlatsContainer"></div>
             <button class="btn-add" onclick="addFlat('tv')">+ 新增戶型</button>
-            <label style="margin-top: 10px; font-size: 0.9rem;">備註:</label>
-            <textarea id="tv_remarks" oninput="handleInput('tv')" style="height: 80px;"></textarea>
+            <textarea id="tv_remarks" oninput="handleInput('tv')" style="height: 60px;" placeholder="備註..."></textarea>
         </div>
-
         <textarea id="tvResultMessage" class="result-area" readonly placeholder="請先上載 Excel..."></textarea>
-        <button class="action-btn tv-btn" onclick="copyToClipboard('tv')">📋 複製 (Copy to WhatsApp)</button>
+        <button class="action-btn tv-btn" onclick="copyToClipboard('tvResultMessage')">📋 複製 (Copy to WhatsApp)</button>
     </div>
 
     <div id="hrTab" class="tab-content">
+        <div class="section" style="border-left-color: #28a745;">
+            <label>🖼️ 設定公司 Logo (只需上載一次):</label>
+            <input type="file" id="logoUpload" accept="image/png, image/jpeg">
+            <img id="logoPreview" alt="Logo預覽">
+            <span style="font-size: 0.8em; color: #28a745; margin-top: 5px; display: block;">✓ 成功上載後，Word檔將自動嵌入此Logo</span>
+        </div>
+
         <div class="section" style="border-left-color: #28a745;">
             <label>👤 選擇員工 (由 Excel 自動讀取):</label>
             <select id="hrEmployeeSelect" onchange="loadEmployeeData()">
@@ -132,23 +139,37 @@
             </select>
             
             <div class="flex-row">
-                <div><span>職位:</span><input type="text" id="hrPosition" oninput="saveEmployeeData()" placeholder="例如: 高級銷售主任"></div>
-                <div><span>員工編號:</span><input type="text" id="hrEmpId" oninput="saveEmployeeData()" placeholder="例如: 50053152"></div>
+                <div><span>職位:</span><input type="text" id="hrPosition" oninput="saveEmployeeData()" placeholder="如: 高級銷售主任"></div>
+                <div><span>員工編號:</span><input type="text" id="hrEmpId" oninput="saveEmployeeData()" placeholder="如: 50053152"></div>
             </div>
-            <span style="font-size: 0.8em; color: #28a745; margin-top: 5px; display: block;">✓ 系統會自動記憶每位員工的職位及編號</span>
+        </div>
+        <button class="action-btn hr-btn" onclick="exportToWord()">📥 匯出 Word 出勤記錄表 (.doc)</button>
+    </div>
+
+    <div id="marketTab" class="tab-content">
+        <div class="section" style="border-left-color: #8e44ad; background: #faf5fd;">
+            <label>📝 貼上代理提供的 WhatsApp 原始成交：</label>
+            <textarea id="rawTransactions" style="height: 150px; background: #fff;" placeholder="請在此貼上完整訊息..."></textarea>
+            <button class="action-btn market-btn" style="margin-top:10px; margin-bottom:0;" onclick="filterTransactions()">🔍 立即過濾跑道區成交</button>
         </div>
         
-        <button class="action-btn hr-btn" onclick="exportToWord()">📥 匯出 Word 出勤記錄表 (.doc)</button>
+        <div class="section" style="border-left-color: #8e44ad;">
+            <label>✅ 過濾結果 (已重組及計算總數)：</label>
+            <textarea id="filteredTransactions" class="result-area" readonly placeholder="過濾後的結果會在此顯示..."></textarea>
+        </div>
+        <button class="action-btn market-btn" onclick="copyToClipboard('filteredTransactions')">📋 複製結果</button>
     </div>
 </div>
 
 <script>
+    // --- 全局變數 ---
     let rosterData = []; 
     let rosterYear = "";
     let rosterMonth = "";
     let daysInMonth = 31;
     let employeeList = []; 
-    
+    let savedLogoBase64 = "";
+
     // --- 地點與假期字典 (精準分離版) ---
     const WORK_LOCATIONS = {
         'C': { time: '09:00–17:30', desc: '公司(PP3)' },
@@ -213,8 +234,7 @@
         { label: "3房1套(連工人套)", value: "*T2B-21F" }
     ];
 
-    let vvFlats = [];
-    let tvFlats = [];
+    let vvFlats = [], tvFlats = [];
 
     window.onload = function() {
         document.getElementById('vvDutyDate').valueAsDate = new Date();
@@ -227,24 +247,50 @@
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         btn.classList.add('active');
+        
+        // 如果切換到跑道成交，隱藏 Excel 上載區，否則顯示
+        document.getElementById('globalUpload').style.display = (tabId === 'marketTab') ? 'none' : 'block';
     }
 
-    // --- 雙盤共用 UI 功能 ---
+    // --- 系統設定與 Logo 讀取 ---
     function loadSettings() {
+        // 載入 Logo
+        savedLogoBase64 = localStorage.getItem('hr_logo_base64');
+        if(savedLogoBase64) {
+            document.getElementById('logoPreview').src = savedLogoBase64;
+            document.getElementById('logoPreview').style.display = 'block';
+        }
+
         // 載入 VV
-        document.getElementById('vvWeekdayAmb').value = localStorage.getItem('vv_wk_amb_v7') || "15";
-        document.getElementById('vvHolidayAmb').value = localStorage.getItem('vv_hol_amb_v7') || "16";
-        vvFlats = JSON.parse(localStorage.getItem('vv_flats_v7')) || JSON.parse(JSON.stringify(defaultVVFlats));
-        document.getElementById('vv_remarks').value = localStorage.getItem('vv_remarks_v7') || defaultRemarks;
+        document.getElementById('vvWeekdayAmb').value = localStorage.getItem('vv_wk_amb_v8') || "15";
+        document.getElementById('vvHolidayAmb').value = localStorage.getItem('vv_hol_amb_v8') || "16";
+        vvFlats = JSON.parse(localStorage.getItem('vv_flats_v8')) || JSON.parse(JSON.stringify(defaultVVFlats));
+        document.getElementById('vv_remarks').value = localStorage.getItem('vv_remarks_v8') || defaultRemarks;
         
         // 載入 TV
-        document.getElementById('tvWeekdayAmb').value = localStorage.getItem('tv_wk_amb_v7') || "3";
-        document.getElementById('tvHolidayAmb').value = localStorage.getItem('tv_hol_amb_v7') || "4";
-        tvFlats = JSON.parse(localStorage.getItem('tv_flats_v7')) || JSON.parse(JSON.stringify(defaultTVFlats));
-        document.getElementById('tv_remarks').value = localStorage.getItem('tv_remarks_v7') || defaultRemarks;
+        document.getElementById('tvWeekdayAmb').value = localStorage.getItem('tv_wk_amb_v8') || "3";
+        document.getElementById('tvHolidayAmb').value = localStorage.getItem('tv_hol_amb_v8') || "4";
+        tvFlats = JSON.parse(localStorage.getItem('tv_flats_v8')) || JSON.parse(JSON.stringify(defaultTVFlats));
+        document.getElementById('tv_remarks').value = localStorage.getItem('tv_remarks_v8') || defaultRemarks;
 
         renderFlats('vv'); renderFlats('tv');
     }
+
+    // Logo 轉換與儲存
+    document.getElementById('logoUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                savedLogoBase64 = evt.target.result;
+                localStorage.setItem('hr_logo_base64', savedLogoBase64);
+                document.getElementById('logoPreview').src = savedLogoBase64;
+                document.getElementById('logoPreview').style.display = 'block';
+                alert("✅ Logo 已成功儲存！");
+            };
+            reader.readAsDataURL(file);
+        }
+    });
 
     function renderFlats(type) {
         const container = document.getElementById(`${type}FlatsContainer`);
@@ -255,7 +301,7 @@
                 <div class="unit-row" data-id="${index}">
                     <div class="drag-handle">☰</div>
                     <input type="text" placeholder="戶型" value="${flat.label}" oninput="updateFlat('${type}', ${index}, 'label', this.value)" style="flex:1;">
-                    <input type="text" placeholder="單位號碼" value="${flat.value}" oninput="updateFlat('${type}', ${index}, 'value', this.value)" style="flex:1.5;">
+                    <input type="text" placeholder="號碼" value="${flat.value}" oninput="updateFlat('${type}', ${index}, 'value', this.value)" style="flex:1.5;">
                     <button class="btn-del" onclick="deleteFlat('${type}', ${index})">刪</button>
                 </div>
             `;
@@ -297,15 +343,15 @@
 
     function saveSettings(type) {
         if (type === 'vv') {
-            localStorage.setItem('vv_flats_v7', JSON.stringify(vvFlats));
-            localStorage.setItem('vv_remarks_v7', document.getElementById('vv_remarks').value);
-            localStorage.setItem('vv_wk_amb_v7', document.getElementById('vvWeekdayAmb').value);
-            localStorage.setItem('vv_hol_amb_v7', document.getElementById('vvHolidayAmb').value);
+            localStorage.setItem('vv_flats_v8', JSON.stringify(vvFlats));
+            localStorage.setItem('vv_remarks_v8', document.getElementById('vv_remarks').value);
+            localStorage.setItem('vv_wk_amb_v8', document.getElementById('vvWeekdayAmb').value);
+            localStorage.setItem('vv_hol_amb_v8', document.getElementById('vvHolidayAmb').value);
         } else {
-            localStorage.setItem('tv_flats_v7', JSON.stringify(tvFlats));
-            localStorage.setItem('tv_remarks_v7', document.getElementById('tv_remarks').value);
-            localStorage.setItem('tv_wk_amb_v7', document.getElementById('tvWeekdayAmb').value);
-            localStorage.setItem('tv_hol_amb_v7', document.getElementById('tvHolidayAmb').value);
+            localStorage.setItem('tv_flats_v8', JSON.stringify(tvFlats));
+            localStorage.setItem('tv_remarks_v8', document.getElementById('tv_remarks').value);
+            localStorage.setItem('tv_wk_amb_v8', document.getElementById('tvWeekdayAmb').value);
+            localStorage.setItem('tv_hol_amb_v8', document.getElementById('tvHolidayAmb').value);
         }
         const badge = document.getElementById(`${type}SaveBadge`);
         badge.style.display = 'inline'; setTimeout(() => { badge.style.display = 'none'; }, 2000);
@@ -334,7 +380,7 @@
         reader.readAsArrayBuffer(file);
     });
 
-    // --- Message 產生器 (雙盤智能分離) ---
+    // --- Message 產生器 ---
     function generateMessage(type) {
         const isVV = type === 'vv';
         const dateInput = document.getElementById(`${type}DutyDate`).value;
@@ -384,14 +430,14 @@
         document.getElementById(`${type}ResultMessage`).value = msg;
     }
 
-    function copyToClipboard(type) {
-        const t = document.getElementById(`${type}ResultMessage`);
-        if(!t.value || t.value.includes("請先上載")) { alert("請先上載 Excel"); return; }
+    function copyToClipboard(elementId) {
+        const t = document.getElementById(elementId);
+        if(!t.value || t.value.includes("請先上載")) { alert("未能複製空內容"); return; }
         t.select(); t.setSelectionRange(0, 99999); 
         navigator.clipboard.writeText(t.value).then(() => alert("✅ 已複製")).catch(() => alert("請手動複製"));
     }
 
-    // --- HR 出勤表模組 (包含 Logo) ---
+    // --- HR 出勤表模組 ---
     function populateEmployeeDropdown() {
         employeeList = [];
         const select = document.getElementById('hrEmployeeSelect');
@@ -445,7 +491,11 @@
         const rowData = rosterData[rowIndex];
         let totalHours = 0;
         
-        // 核心修正：於 Word 文件頂部加入中國海外 Logo (透過絕對網址)
+        // 將儲存的 Base64 嵌入 HTML，保證離線可用
+        let imgHtml = savedLogoBase64 
+            ? `<img src="${savedLogoBase64}" style="width: 250px; height: auto;" />` 
+            : `<h3 style="color:#0056b3;">[請先於系統上載公司 Logo]</h3>`;
+
         let htmlContent = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head>
@@ -456,12 +506,12 @@
                 th, td { border: 1px solid black; padding: 6px; text-align: center; }
                 .meta-table td { border: none; text-align: left; padding: 2px; }
                 h2 { text-align: center; font-size: 16pt; margin-bottom: 20px; }
-                .logo-container { text-align: center; margin-bottom: 15px; }
+                .logo-container { text-align: left; margin-bottom: 15px; }
             </style>
         </head>
         <body>
             <div class="logo-container">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/China_Overseas_Land_and_Investment_logo.svg/512px-China_Overseas_Land_and_Investment_logo.svg.png" style="width: 250px; height: auto;" />
+                ${imgHtml}
             </div>
             <h2>手寫出勤記錄表 ( ${rosterYear} )年(${rosterMonth})月份</h2>
             <table class="meta-table">
@@ -501,7 +551,6 @@
 
         const monthsEng = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const monthWord = monthsEng[parseInt(rosterMonth) - 1] || rosterMonth;
-        
         const safeName = empName.replace(/ /g, '_');
         const fileName = `${safeName}出勤記錄表${monthWord} ${rosterYear}.doc`;
 
@@ -512,6 +561,59 @@
         fileDownload.download = fileName;
         fileDownload.click();
         document.body.removeChild(fileDownload);
+    }
+
+    // --- 跑道區成交過濾模組 ---
+    function filterTransactions() {
+        const rawText = document.getElementById('rawTransactions').value;
+        if(!rawText.trim()) return;
+
+        // 目標過濾關鍵字
+        const keywords = [
+            "天璽·海", "天璽‧海", "天璽·海(I)", "天璽·海2B", "天璽·海2A", 
+            "柏蔚森", "澐璟", "Miami Quay", "維港·灣畔", "維港‧灣畔", 
+            "維港·雙鑽", "維港‧雙鑽", "啟德海灣", "Double Coast", "天瀧", "維港1號", "維港一號"
+        ];
+        
+        const separator = "🔸🔹🔸🔹🔸🔹";
+        const blocks = rawText.split(separator);
+        
+        if(blocks.length < 2) {
+            alert("未能偵測到分隔線(🔸🔹🔸🔹🔸🔹)，請確保貼上完整訊息。");
+            return;
+        }
+
+        const header = blocks.shift(); 
+        let dateStr = "今日";
+        const dateMatch = header.match(/(.*?)一手市場成交/);
+        if(dateMatch) {
+            dateStr = dateMatch[1].trim();
+        }
+
+        let validBlocks = [];
+        let totalCount = 0;
+
+        blocks.forEach(block => {
+            if(!block.trim()) return;
+            
+            const isRunway = keywords.some(kw => block.includes(kw));
+            if(isRunway) {
+                validBlocks.push(block.trim());
+                // 尋找「：數字」或「:數字」來計算成交宗數
+                const countMatch = block.match(/[:：]\s*(\d+)/);
+                if(countMatch) {
+                    totalCount += parseInt(countMatch[1], 10);
+                }
+            }
+        });
+
+        let finalText = `${dateStr}一手跑道區成交：(${totalCount})\n${separator}\n`;
+        finalText += validBlocks.join(`\n${separator}\n`);
+        if(validBlocks.length > 0) {
+            finalText += `\n${separator}`;
+        }
+
+        document.getElementById('filteredTransactions').value = finalText;
     }
 
     if ('serviceWorker' in navigator) {
