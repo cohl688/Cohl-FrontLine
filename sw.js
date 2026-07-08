@@ -1,5 +1,5 @@
-// 每次修改 index.html 後，請將呢度嘅 v4 轉做 v5、v6... 如此類推，同事部機先會強制更新
-const CACHE_NAME = 'vv-roster-v4';
+// 已升級至 v7，全面引入三分頁設計及 Word Logo
+const CACHE_NAME = 'vv-roster-v7';
 
 const urlsToCache = [
   './index.html',
@@ -21,7 +21,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName); // 強制洗走舊版快取
+            return caches.delete(cacheName); // 洗走舊版快取
           }
         })
       );
