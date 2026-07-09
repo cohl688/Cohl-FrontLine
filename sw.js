@@ -1,5 +1,5 @@
-// 已升級至 v8，全面引入跑道成交過濾及本地 Logo 功能
-const CACHE_NAME = 'vv-roster-v8';
+// 已升級至 v14，引入 IndexedDB 永久離線記憶體
+const CACHE_NAME = 'vv-roster-v14';
 
 const urlsToCache = [
   './index.html',
@@ -21,7 +21,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName); // 洗走舊版快取
+            return caches.delete(cacheName); // 強制洗走舊版快取
           }
         })
       );

@@ -23,7 +23,6 @@
         label { font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.95rem; }
         input[type="file"], input[type="date"], input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
         
-        /* 四分頁選單樣式 */
         .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; border-radius: 5px 5px 0 0; overflow: hidden; }
         .tab-btn { flex: 1; padding: 10px 5px; background: #eef2f5; border: none; cursor: pointer; font-weight: bold; color: #555; font-size: 12px; transition: 0.3s; border-right: 1px solid #ddd; }
         .tab-btn:last-child { border-right: none; }
@@ -84,10 +83,6 @@
                 <div><span>平日大使:</span><input type="number" id="vvWeekdayAmb" value="15" oninput="handleInput('vv')"></div>
                 <div><span>假日大使:</span><input type="number" id="vvHolidayAmb" value="16" oninput="handleInput('vv')"></div>
             </div>
-            <label style="margin-top: 12px; font-weight: normal; color:#d9534f; font-size: 0.9em; display: flex; align-items: center;">
-                <input type="checkbox" id="vvIsHoliday" onchange="generateMessage('vv')" style="width: auto; margin-right: 8px;"> 
-                強制使用假日人數
-            </label>
         </div>
 
         <div class="section" style="border-left-color: #0056b3;">
@@ -108,10 +103,6 @@
                 <div><span>平日大使:</span><input type="number" id="tvWeekdayAmb" value="3" oninput="handleInput('tv')"></div>
                 <div><span>假日大使:</span><input type="number" id="tvHolidayAmb" value="4" oninput="handleInput('tv')"></div>
             </div>
-            <label style="margin-top: 12px; font-weight: normal; color:#d9534f; font-size: 0.9em; display: flex; align-items: center;">
-                <input type="checkbox" id="tvIsHoliday" onchange="generateMessage('tv')" style="width: auto; margin-right: 8px;"> 
-                強制使用假日人數
-            </label>
         </div>
 
         <div class="section" style="border-left-color: #d4af37; background: #fdfbf7;">
@@ -129,7 +120,6 @@
             <label>🖼️ 設定公司 Logo (只需上載一次):</label>
             <input type="file" id="logoUpload" accept="image/png, image/jpeg">
             <img id="logoPreview" alt="Logo預覽">
-            <span style="font-size: 0.8em; color: #28a745; margin-top: 5px; display: block;">✓ 成功上載後，Word檔將自動嵌入此Logo</span>
         </div>
 
         <div class="section" style="border-left-color: #28a745;">
@@ -137,7 +127,6 @@
             <select id="hrEmployeeSelect" onchange="loadEmployeeData()">
                 <option value="">-- 請先上載 Excel --</option>
             </select>
-            
             <div class="flex-row">
                 <div><span>職位:</span><input type="text" id="hrPosition" oninput="saveEmployeeData()" placeholder="如: 高級銷售主任"></div>
                 <div><span>員工編號:</span><input type="text" id="hrEmpId" oninput="saveEmployeeData()" placeholder="如: 50053152"></div>
@@ -148,13 +137,22 @@
 
     <div id="marketTab" class="tab-content">
         <div class="section" style="border-left-color: #8e44ad; background: #faf5fd;">
-            <label>📝 貼上代理提供的 WhatsApp 原始成交：</label>
+            <label id="flatMixUploadLabel">📂 首次設定：上載跑道區 Flat Mix Excel</label>
+            <div class="flex-row" id="flatMixUploadRow">
+                <input type="file" id="flatMixFile" accept=".xlsx, .xls">
+            </div>
+            <div id="flatMixStatus" style="color:#d9534f; font-size:0.85em; margin-top:5px; font-weight:bold;">⚠️ 未讀取 Flat Mix 數據</div>
+            <button id="resetFlatMixBtn" onclick="resetFlatMix()" style="display:none; margin-top:10px; background:#d9534f; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">🔄 清除數據並重新上載</button>
+        </div>
+
+        <div class="section" style="border-left-color: #8e44ad; background: #faf5fd;">
+            <label>📝 貼上代理 WhatsApp 原始成交訊息：</label>
             <textarea id="rawTransactions" style="height: 150px; background: #fff;" placeholder="請在此貼上完整訊息..."></textarea>
             <button class="action-btn market-btn" style="margin-top:10px; margin-bottom:0;" onclick="filterTransactions()">🔍 立即過濾跑道區成交</button>
         </div>
         
         <div class="section" style="border-left-color: #8e44ad;">
-            <label>✅ 過濾結果 (已重組及計算總數)：</label>
+            <label>✅ 過濾結果 (已自動重算並優先完美配對)：</label>
             <textarea id="filteredTransactions" class="result-area" readonly placeholder="過濾後的結果會在此顯示..."></textarea>
         </div>
         <button class="action-btn market-btn" onclick="copyToClipboard('filteredTransactions')">📋 複製結果</button>
@@ -162,247 +160,203 @@
 </div>
 
 <script>
-    // --- 全局變數 ---
-    let rosterData = []; 
-    let rosterYear = "";
-    let rosterMonth = "";
-    let daysInMonth = 31;
-    let employeeList = []; 
-    let savedLogoBase64 = "";
+    // ==========================================
+    // 0. IndexedDB 永久記憶體模組
+    // ==========================================
+    const DB_NAME = "ColiFlatMixDB";
+    const STORE_NAME = "FlatMixStore";
 
-    // --- 地點與假期字典 (精準分離版) ---
-    const WORK_LOCATIONS = {
-        'C': { time: '09:00–17:30', desc: '公司(PP3)' },
-        'OV': { time: '10:30–19:00', desc: '維港1號(現樓)' },
-        'K': { time: '10:30–19:00', desc: '九龍灣國際交易中心' },
-        'F': { time: '10:30–19:00', desc: '飛鵝山道3號(現樓)' },
-        'TV': { time: '10:30–19:00', desc: '維港．雙鑽(現樓)' },
-        'VV': { time: '10:30–19:00', desc: '維港‧灣畔(現樓)' },
-        'VW': { time: '10:30–19:00', desc: '維港‧灣畔(現樓)' }
-    };
-
-    const EXACT_LEAVE_TYPES = {
-        'FL': '喪假', 'Q': '居家隔離', 'ML': '產假', 'PL': '侍產假',
-        'M': '婚假', 'BL': '生日假', 'CL': '關懷假', 'VL': '義工補假',
-        'V': '疫苗假', 'WFH': '在家工作', 'JSL': '陪審員假', 'EL': '額外假期',
-        'SL': '進修假', 'NPL': '無薪假', '/': '半天假'
-    };
-
-    const SYMBOL_LEAVE_TYPES = {
-        '▲': '例假', '✽': '補假', '●': '超時工作補假', '★': '病假', 
-        '■': '年假', '◎': '事假'
-    };
-
-    function parseShiftToHR(shiftValue) {
-        let val = (shiftValue || "").toString().trim().toUpperCase();
-        if (!val) return { time: '--', desc: '--', hours: '--' };
-
-        if (EXACT_LEAVE_TYPES[val]) return { time: EXACT_LEAVE_TYPES[val], desc: EXACT_LEAVE_TYPES[val] + '一天', hours: '--' };
-
-        for (const [symbol, leaveName] of Object.entries(SYMBOL_LEAVE_TYPES)) {
-            if (val.includes(symbol)) return { time: leaveName, desc: leaveName + '一天', hours: '--' };
-        }
-
-        let locations = []; let timeRange = ''; let foundWork = false;
-        val.split('/').forEach(p => {
-            const trimmed = p.trim();
-            if (WORK_LOCATIONS[trimmed]) {
-                foundWork = true;
-                locations.push(WORK_LOCATIONS[trimmed].desc);
-                if (timeRange === '') timeRange = WORK_LOCATIONS[trimmed].time;
-            }
+    function openDB() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: "id" });
+                }
+            };
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = (e) => reject(e.target.error);
         });
-
-        if (foundWork) return { time: timeRange, desc: locations.join(' / '), hours: 8.5 };
-        return { time: '--', desc: val, hours: '--' };
     }
 
-    // --- 雙盤設定變數 ---
-    const salesPool = ["Moon", "Joe", "Andrew", "Ankie", "Eric", "Stephen", "Peter"];
-    const internPool = ["Sammi", "Karina", "Renne"];
-    const defaultRemarks = "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
-    
-    const defaultVVFlats = [
-        { label: "1房", value: "T1A-17C" }, { label: "2房（開廚）", value: "T1A-17D, T1A-17E, T1B-17B" },
-        { label: "2房（梗廚）", value: "T1C-17G" }, { label: "2房+儲物房（梗廚）", value: "T1B-17A, T2A-17A, T2B-17J, T2A-17J" },
-        { label: "3房1套（開廚）", value: "T5B-17B" }, { label: "3房1套+工作間連洗手間", value: "*T1A-17A, T1A-17B, T5B-17A" }
-    ];
-    
-    const defaultTVFlats = [
-        { label: "開放式", value: "T2A-21C" }, { label: "2房開廚", value: "T1A-21F, T2A-21A, T2B-21D" },
-        { label: "2房梗廚", value: "T1B-21H, T2A-21G, T2B-21E" }, { label: "3房1套(儲)", value: "#T2B-21G" },
-        { label: "3房1套(連工人套)", value: "*T2B-21F" }
-    ];
+    async function saveFlatMixToDB(data) {
+        try {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_NAME], "readwrite");
+                const store = tx.objectStore(STORE_NAME);
+                store.put({ id: "flatMixData", data: data });
+                tx.oncomplete = resolve;
+                tx.onerror = reject;
+            });
+        } catch(e) { console.error("DB Save Error", e); }
+    }
 
+    async function loadFlatMixFromDB() {
+        try {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_NAME], "readonly");
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.get("flatMixData");
+                req.onsuccess = () => resolve(req.result ? req.result.data : null);
+                req.onerror = reject;
+            });
+        } catch(e) { console.error("DB Load Error", e); return null; }
+    }
+
+    function resetFlatMix() {
+        if(confirm("確定要清除現有的 Flat Mix 數據庫並重新上載？")) {
+            flatMixData = [];
+            document.getElementById('flatMixUploadRow').style.display = 'block';
+            document.getElementById('resetFlatMixBtn').style.display = 'none';
+            document.getElementById('flatMixStatus').innerText = "⚠️ 數據已清除，請重新上載";
+            document.getElementById('flatMixStatus').style.color = "#d9534f";
+            document.getElementById('flatMixUploadLabel').innerText = "📂 首次設定：上載跑道區 Flat Mix Excel";
+            openDB().then(db => {
+                const tx = db.transaction([STORE_NAME], "readwrite");
+                tx.objectStore(STORE_NAME).delete("flatMixData");
+            });
+        }
+    }
+
+    // ==========================================
+    // 1. 全局變數
+    // ==========================================
+    let rosterData = []; 
+    let rosterYear = ""; let rosterMonth = ""; let daysInMonth = 31;
+    let employeeList = []; 
+    let savedLogoBase64 = "";
+    let flatMixData = []; 
+
+    const WORK_LOCATIONS = { 'C': { time: '09:00–17:30', desc: '公司(PP3)' }, 'OV': { time: '10:30–19:00', desc: '維港1號(現樓)' }, 'K': { time: '10:30–19:00', desc: '九龍灣國際交易中心' }, 'F': { time: '10:30–19:00', desc: '飛鵝山道3號(現樓)' }, 'TV': { time: '10:30–19:00', desc: '維港．雙鑽(現樓)' }, 'VV': { time: '10:30–19:00', desc: '維港‧灣畔(現樓)' }, 'VW': { time: '10:30–19:00', desc: '維港‧灣畔(現樓)' } };
+    const EXACT_LEAVE_TYPES = { 'FL':'喪假', 'Q':'居家隔離', 'ML':'產假', 'PL':'侍產假', 'M':'婚假', 'BL':'生日假', 'CL':'關懷假', 'VL':'義工補假', 'V':'疫苗假', 'WFH':'在家工作', 'JSL':'陪審員假', 'EL':'額外假期', 'SL':'進修假', 'NPL':'無薪假', '/':'半天假' };
+    const SYMBOL_LEAVE_TYPES = { '▲':'例假', '✽':'補假', '●':'超時工作補假', '★':'病假', '■':'年假', '◎':'事假' };
+    const salesPool = ["Moon", "Joe", "Andrew", "Ankie", "Eric", "Stephen", "Peter"]; const internPool = ["Sammi", "Karina", "Renne"];
+    const defaultVVFlats = [ { label: "1房", value: "T1A-17C" }, { label: "2房（開廚）", value: "T1A-17D, T1A-17E, T1B-17B" }, { label: "2房（梗廚）", value: "T1C-17G" }, { label: "2房+儲物房（梗廚）", value: "T1B-17A, T2A-17A, T2B-17J, T2A-17J" }, { label: "3房1套（開廚）", value: "T5B-17B" }, { label: "3房1套+工作間連洗手間", value: "*T1A-17A, T1A-17B, T5B-17A" } ];
+    const defaultTVFlats = [ { label: "開放式", value: "T2A-21C" }, { label: "2房開廚", value: "T1A-21F, T2A-21A, T2B-21D" }, { label: "2房梗廚", value: "T1B-21H, T2A-21G, T2B-21E" }, { label: "3房1套(儲)", value: "#T2B-21G" }, { label: "3房1套(連工人套)", value: "*T2B-21F" } ];
     let vvFlats = [], tvFlats = [];
 
-    window.onload = function() {
-        document.getElementById('vvDutyDate').valueAsDate = new Date();
-        document.getElementById('tvDutyDate').valueAsDate = new Date();
-        loadSettings();
+    // ==========================================
+    // 2. 初始化與分頁切換
+    // ==========================================
+    window.onload = async function() { 
+        document.getElementById('vvDutyDate').valueAsDate = new Date(); 
+        document.getElementById('tvDutyDate').valueAsDate = new Date(); 
+        loadSettings(); 
+        
+        // 自動拉取已儲存嘅 Flat Mix 數據
+        const savedFlatMix = await loadFlatMixFromDB();
+        if (savedFlatMix && savedFlatMix.length > 0) {
+            flatMixData = savedFlatMix;
+            document.getElementById('flatMixStatus').innerText = `✅ Flat Mix 數據庫已永久內置 (${flatMixData.length} 筆數據)`;
+            document.getElementById('flatMixStatus').style.color = "#28a745";
+            document.getElementById('flatMixUploadRow').style.display = 'none'; // 隱藏上載掣
+            document.getElementById('resetFlatMixBtn').style.display = 'inline-block'; // 顯示清除掣
+            document.getElementById('flatMixUploadLabel').innerText = "📂 Flat Mix 數據庫狀態";
+        }
     };
 
     function switchTab(tabId, btn) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        btn.classList.add('active');
-        
-        // 如果切換到跑道成交，隱藏 Excel 上載區，否則顯示
+        document.getElementById(tabId).classList.add('active'); btn.classList.add('active');
         document.getElementById('globalUpload').style.display = (tabId === 'marketTab') ? 'none' : 'block';
     }
 
-    // --- 系統設定與 Logo 讀取 ---
+    // ==========================================
+    // 3. 設定儲存模組 
+    // ==========================================
     function loadSettings() {
-        // 載入 Logo
         savedLogoBase64 = localStorage.getItem('hr_logo_base64');
-        if(savedLogoBase64) {
-            document.getElementById('logoPreview').src = savedLogoBase64;
-            document.getElementById('logoPreview').style.display = 'block';
-        }
-
-        // 載入 VV
-        document.getElementById('vvWeekdayAmb').value = localStorage.getItem('vv_wk_amb_v8') || "15";
-        document.getElementById('vvHolidayAmb').value = localStorage.getItem('vv_hol_amb_v8') || "16";
-        vvFlats = JSON.parse(localStorage.getItem('vv_flats_v8')) || JSON.parse(JSON.stringify(defaultVVFlats));
-        document.getElementById('vv_remarks').value = localStorage.getItem('vv_remarks_v8') || defaultRemarks;
-        
-        // 載入 TV
-        document.getElementById('tvWeekdayAmb').value = localStorage.getItem('tv_wk_amb_v8') || "3";
-        document.getElementById('tvHolidayAmb').value = localStorage.getItem('tv_hol_amb_v8') || "4";
-        tvFlats = JSON.parse(localStorage.getItem('tv_flats_v8')) || JSON.parse(JSON.stringify(defaultTVFlats));
-        document.getElementById('tv_remarks').value = localStorage.getItem('tv_remarks_v8') || defaultRemarks;
-
+        if(savedLogoBase64) { document.getElementById('logoPreview').src = savedLogoBase64; document.getElementById('logoPreview').style.display = 'block'; }
+        document.getElementById('vvWeekdayAmb').value = localStorage.getItem('vv_wk_amb_v14') || "15"; document.getElementById('vvHolidayAmb').value = localStorage.getItem('vv_hol_amb_v14') || "16";
+        vvFlats = JSON.parse(localStorage.getItem('vv_flats_v14')) || JSON.parse(JSON.stringify(defaultVVFlats)); document.getElementById('vv_remarks').value = localStorage.getItem('vv_remarks_v14') || "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
+        document.getElementById('tvWeekdayAmb').value = localStorage.getItem('tv_wk_amb_v14') || "3"; document.getElementById('tvHolidayAmb').value = localStorage.getItem('tv_hol_amb_v14') || "4";
+        tvFlats = JSON.parse(localStorage.getItem('tv_flats_v14')) || JSON.parse(JSON.stringify(defaultTVFlats)); document.getElementById('tv_remarks').value = localStorage.getItem('tv_remarks_v14') || "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
         renderFlats('vv'); renderFlats('tv');
     }
 
-    // Logo 轉換與儲存
     document.getElementById('logoUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                savedLogoBase64 = evt.target.result;
-                localStorage.setItem('hr_logo_base64', savedLogoBase64);
-                document.getElementById('logoPreview').src = savedLogoBase64;
-                document.getElementById('logoPreview').style.display = 'block';
-                alert("✅ Logo 已成功儲存！");
-            };
-            reader.readAsDataURL(file);
-        }
+        if (file) { const reader = new FileReader(); reader.onload = function(evt) { savedLogoBase64 = evt.target.result; localStorage.setItem('hr_logo_base64', savedLogoBase64); document.getElementById('logoPreview').src = savedLogoBase64; document.getElementById('logoPreview').style.display = 'block'; alert("✅ Logo 已成功儲存！"); }; reader.readAsDataURL(file); }
     });
 
     function renderFlats(type) {
-        const container = document.getElementById(`${type}FlatsContainer`);
-        const flatsArr = type === 'vv' ? vvFlats : tvFlats;
-        container.innerHTML = '';
-        flatsArr.forEach((flat, index) => {
-            container.innerHTML += `
-                <div class="unit-row" data-id="${index}">
-                    <div class="drag-handle">☰</div>
-                    <input type="text" placeholder="戶型" value="${flat.label}" oninput="updateFlat('${type}', ${index}, 'label', this.value)" style="flex:1;">
-                    <input type="text" placeholder="號碼" value="${flat.value}" oninput="updateFlat('${type}', ${index}, 'value', this.value)" style="flex:1.5;">
-                    <button class="btn-del" onclick="deleteFlat('${type}', ${index})">刪</button>
-                </div>
-            `;
-        });
+        const container = document.getElementById(`${type}FlatsContainer`); const flatsArr = type === 'vv' ? vvFlats : tvFlats; container.innerHTML = '';
+        flatsArr.forEach((flat, index) => { container.innerHTML += `<div class="unit-row" data-id="${index}"><div class="drag-handle">☰</div><input type="text" placeholder="戶型" value="${flat.label}" oninput="updateFlat('${type}', ${index}, 'label', this.value)" style="flex:1;"><input type="text" placeholder="號碼" value="${flat.value}" oninput="updateFlat('${type}', ${index}, 'value', this.value)" style="flex:1.5;"><button class="btn-del" onclick="deleteFlat('${type}', ${index})">刪</button></div>`; });
         initSortable(type); generateMessage(type);
     }
 
-    function initSortable(type) {
-        new Sortable(document.getElementById(`${type}FlatsContainer`), {
-            handle: '.drag-handle', animation: 150,
-            onEnd: function (evt) {
-                const arr = type === 'vv' ? vvFlats : tvFlats;
-                const item = arr.splice(evt.oldIndex, 1)[0];
-                arr.splice(evt.newIndex, 0, item);
-                saveSettings(type); renderFlats(type); 
-            }
-        });
-    }
-
-    function addFlat(type) {
-        if (type === 'vv') vvFlats.push({ label: "", value: "" });
-        if (type === 'tv') tvFlats.push({ label: "", value: "" });
-        renderFlats(type); saveSettings(type);
-    }
-
-    function updateFlat(type, index, field, value) {
-        if (type === 'vv') vvFlats[index][field] = value;
-        if (type === 'tv') tvFlats[index][field] = value;
-        handleInput(type);
-    }
-
-    function deleteFlat(type, index) {
-        if (type === 'vv') vvFlats.splice(index, 1);
-        if (type === 'tv') tvFlats.splice(index, 1);
-        renderFlats(type); saveSettings(type);
-    }
-
+    function initSortable(type) { new Sortable(document.getElementById(`${type}FlatsContainer`), { handle: '.drag-handle', animation: 150, onEnd: function (evt) { const arr = type === 'vv' ? vvFlats : tvFlats; const item = arr.splice(evt.oldIndex, 1)[0]; arr.splice(evt.newIndex, 0, item); saveSettings(type); renderFlats(type); } }); }
+    function addFlat(type) { (type === 'vv') ? vvFlats.push({ label: "", value: "" }) : tvFlats.push({ label: "", value: "" }); renderFlats(type); saveSettings(type); }
+    function updateFlat(type, index, field, value) { (type === 'vv') ? vvFlats[index][field] = value : tvFlats[index][field] = value; handleInput(type); }
+    function deleteFlat(type, index) { (type === 'vv') ? vvFlats.splice(index, 1) : tvFlats.splice(index, 1); renderFlats(type); saveSettings(type); }
     function handleInput(type) { generateMessage(type); saveSettings(type); }
-
     function saveSettings(type) {
-        if (type === 'vv') {
-            localStorage.setItem('vv_flats_v8', JSON.stringify(vvFlats));
-            localStorage.setItem('vv_remarks_v8', document.getElementById('vv_remarks').value);
-            localStorage.setItem('vv_wk_amb_v8', document.getElementById('vvWeekdayAmb').value);
-            localStorage.setItem('vv_hol_amb_v8', document.getElementById('vvHolidayAmb').value);
-        } else {
-            localStorage.setItem('tv_flats_v8', JSON.stringify(tvFlats));
-            localStorage.setItem('tv_remarks_v8', document.getElementById('tv_remarks').value);
-            localStorage.setItem('tv_wk_amb_v8', document.getElementById('tvWeekdayAmb').value);
-            localStorage.setItem('tv_hol_amb_v8', document.getElementById('tvHolidayAmb').value);
-        }
-        const badge = document.getElementById(`${type}SaveBadge`);
-        badge.style.display = 'inline'; setTimeout(() => { badge.style.display = 'none'; }, 2000);
+        if (type === 'vv') { localStorage.setItem('vv_flats_v14', JSON.stringify(vvFlats)); localStorage.setItem('vv_remarks_v14', document.getElementById('vv_remarks').value); localStorage.setItem('vv_wk_amb_v14', document.getElementById('vvWeekdayAmb').value); localStorage.setItem('vv_hol_amb_v14', document.getElementById('vvHolidayAmb').value); } 
+        else { localStorage.setItem('tv_flats_v14', JSON.stringify(tvFlats)); localStorage.setItem('tv_remarks_v14', document.getElementById('tv_remarks').value); localStorage.setItem('tv_wk_amb_v14', document.getElementById('tvWeekdayAmb').value); localStorage.setItem('tv_hol_amb_v14', document.getElementById('tvHolidayAmb').value); }
+        const badge = document.getElementById(`${type}SaveBadge`); badge.style.display = 'inline'; setTimeout(() => { badge.style.display = 'none'; }, 2000);
     }
 
-    // --- Excel 檔案讀取 ---
+    // ==========================================
+    // 4. Excel 讀取區 (更表及 Flat Mix)
+    // ==========================================
     document.getElementById('excelFile').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
+        const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
                 rosterData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
-                document.getElementById('uploadStatus').innerText = `✅ Excel 讀取成功`;
-                document.getElementById('uploadStatus').style.color = "#28a745";
-                
-                if (rosterData[1] && rosterData[1][0]) {
-                    const match = rosterData[1][0].match(/(\d{4})年(\d{1,2})月份/);
-                    if (match) { rosterYear = match[1]; rosterMonth = match[2]; daysInMonth = new Date(rosterYear, rosterMonth, 0).getDate(); }
-                }
-                populateEmployeeDropdown();
-                generateMessage('vv'); generateMessage('tv'); 
+                document.getElementById('uploadStatus').innerText = `✅ Excel 讀取成功`; document.getElementById('uploadStatus').style.color = "#28a745";
+                if (rosterData[1] && rosterData[1][0]) { const match = rosterData[1][0].match(/(\d{4})年(\d{1,2})月份/); if (match) { rosterYear = match[1]; rosterMonth = match[2]; daysInMonth = new Date(rosterYear, rosterMonth, 0).getDate(); } }
+                populateEmployeeDropdown(); generateMessage('vv'); generateMessage('tv'); 
             } catch (error) { document.getElementById('uploadStatus').innerText = "❌ 格式錯誤"; }
-        };
-        reader.readAsArrayBuffer(file);
+        }; reader.readAsArrayBuffer(file);
     });
 
-    // --- Message 產生器 ---
+    document.getElementById('flatMixFile').addEventListener('change', function(e) {
+        const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                document.getElementById('flatMixStatus').innerText = `🔄 正在寫入底層數據庫，請稍候...`;
+                document.getElementById('flatMixStatus').style.color = "#d4af37";
+                
+                setTimeout(async () => {
+                    const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    flatMixData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1}); 
+                    await saveFlatMixToDB(flatMixData);
+                    
+                    document.getElementById('flatMixStatus').innerText = `✅ 數據已成功永久內置 (${flatMixData.length} 筆數據)！以後無需再上載。`; 
+                    document.getElementById('flatMixStatus').style.color = "#28a745";
+                    document.getElementById('flatMixUploadRow').style.display = 'none';
+                    document.getElementById('resetFlatMixBtn').style.display = 'inline-block';
+                    document.getElementById('flatMixUploadLabel').innerText = "📂 Flat Mix 數據庫狀態";
+                }, 100);
+            } catch (error) { 
+                document.getElementById('flatMixStatus').innerText = "❌ Flat Mix 格式錯誤"; 
+                document.getElementById('flatMixStatus').style.color = "#d9534f";
+            }
+        }; reader.readAsArrayBuffer(file);
+    });
+
+    // --- (HR 出勤表代碼) ---
+    function parseShiftToHR(shiftValue) { let val = (shiftValue || "").toString().trim().toUpperCase(); if (!val) return { time: '--', desc: '--', hours: '--' }; if (EXACT_LEAVE_TYPES[val]) return { time: EXACT_LEAVE_TYPES[val], desc: EXACT_LEAVE_TYPES[val] + '一天', hours: '--' }; for (const [symbol, leaveName] of Object.entries(SYMBOL_LEAVE_TYPES)) { if (val.includes(symbol)) return { time: leaveName, desc: leaveName + '一天', hours: '--' }; } let locations = []; let timeRange = ''; let foundWork = false; val.split('/').forEach(p => { const trimmed = p.trim(); if (WORK_LOCATIONS[trimmed]) { foundWork = true; locations.push(WORK_LOCATIONS[trimmed].desc); if (timeRange === '') timeRange = WORK_LOCATIONS[trimmed].time; } }); if (foundWork) return { time: timeRange, desc: locations.join(' / '), hours: 8.5 }; return { time: '--', desc: val, hours: '--' }; }
     function generateMessage(type) {
         const isVV = type === 'vv';
-        const dateInput = document.getElementById(`${type}DutyDate`).value;
-        if (!dateInput) return;
-        
-        const d = new Date(dateInput);
-        const weekdayNum = d.getDay(); 
+        const dateInput = document.getElementById(`${type}DutyDate`).value; if (!dateInput) return;
+        const d = new Date(dateInput); const weekdayNum = d.getDay(); 
         const formattedDate = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} (${["日","一","二","三","四","五","六"][weekdayNum]})`;
-
         const customWkAmb = document.getElementById(`${type}WeekdayAmb`).value || (isVV ? "15" : "3");
         const customHolAmb = document.getElementById(`${type}HolidayAmb`).value || (isVV ? "16" : "4");
-        let ambassadorCount = (weekdayNum === 0 || weekdayNum === 6 || document.getElementById(`${type}IsHoliday`).checked) ? customHolAmb : customWkAmb;
-
+        let ambassadorCount = (weekdayNum === 0 || weekdayNum === 6 || document.getElementById(`${type}IsHoliday`)?.checked) ? customHolAmb : customWkAmb;
         let salesToday = [], internToday = [];
-
         if (rosterData.length > 0) {
             const targetCol = d.getDate() + 2; 
             for (let i = 4; i < rosterData.length; i++) {
-                let row = rosterData[i];
-                if (!row || !row[0]) continue; 
+                let row = rosterData[i]; if (!row || !row[0]) continue; 
                 let cellName = String(row[0]), shiftValue = String(row[targetCol] || "").trim().toUpperCase();
-                
                 if (isVV && (shiftValue.includes('VV') || shiftValue.includes('VW'))) {
                     salesPool.forEach(n => { if (cellName.includes(n) && !salesToday.includes(n)) salesToday.push(n); });
                     internPool.forEach(n => { if (cellName.includes(n) && !internToday.includes(n)) internToday.push(n); });
@@ -411,214 +365,226 @@
                 }
             }
         }
-
-        let showflatText = "";
-        const flatsArr = isVV ? vvFlats : tvFlats;
-        flatsArr.forEach(flat => {
-            if (flat.label.trim() && flat.value.trim()) showflatText += `${flat.label}：${flat.value}\n`;
-        });
+        let showflatText = ""; const flatsArr = isVV ? vvFlats : tvFlats;
+        flatsArr.forEach(flat => { if (flat.label.trim() && flat.value.trim()) showflatText += `${flat.label}：${flat.value}\n`; });
         showflatText += `\n${document.getElementById(`${type}_remarks`).value.trim()}`;
-
-        const projName = isVV ? "維港‧灣畔現樓" : "維港‧雙鑽現樓";
-        const cleanerCount = isVV ? 3 : 1;
-        
+        const projName = isVV ? "維港‧灣畔現樓" : "維港‧雙鑽現樓"; const cleanerCount = isVV ? 3 : 1;
         let msg = `${projName}\n${formattedDate}\n\n⏰當值時間：10:30pm-7:00pm\n\n👤當值人員\n`;
         msg += `銷售 ：${salesToday.length ? salesToday.join(', ') + ' (' + salesToday.length + '人)' : '無 (0人)'}\n`;
         if (isVV) msg += `實習生：${internToday.length ? internToday.join(', ') + ' (' + internToday.length + '人)' : '無 (0人)'}\n`;
         msg += `服務大使：${ambassadorCount}人\n清潔：${cleanerCount}人\n\n「開放示範單位」：\n${showflatText}`;
-
         document.getElementById(`${type}ResultMessage`).value = msg;
     }
-
-    function copyToClipboard(elementId) {
-        const t = document.getElementById(elementId);
-        if(!t.value || t.value.includes("請先上載")) { alert("未能複製空內容"); return; }
-        t.select(); t.setSelectionRange(0, 99999); 
-        navigator.clipboard.writeText(t.value).then(() => alert("✅ 已複製")).catch(() => alert("請手動複製"));
-    }
-
-    // --- HR 出勤表模組 ---
     function populateEmployeeDropdown() {
-        employeeList = [];
-        const select = document.getElementById('hrEmployeeSelect');
-        select.innerHTML = '<option value="">-- 請選擇員工 --</option>';
+        employeeList = []; const select = document.getElementById('hrEmployeeSelect'); select.innerHTML = '<option value="">-- 請選擇員工 --</option>';
         for (let i = 4; i < rosterData.length; i++) {
             let row = rosterData[i];
             if (row && row[0] && typeof row[0] === 'string' && row[1] && typeof row[1] === 'string' && row[1].includes('(')) {
-                let name = row[0].trim();
-                employeeList.push({ name: name, rowIndex: i });
-                select.innerHTML += `<option value="${i}">${name}</option>`;
+                let name = row[0].trim(); employeeList.push({ name: name, rowIndex: i }); select.innerHTML += `<option value="${i}">${name}</option>`;
             }
         }
     }
-
     function loadEmployeeData() {
-        const select = document.getElementById('hrEmployeeSelect');
-        if (!select.value) return;
-        const name = select.options[select.selectedIndex].text;
-        const saved = localStorage.getItem('hr_data_' + name);
-        if (saved) {
-            const data = JSON.parse(saved);
-            document.getElementById('hrPosition').value = data.position || '';
-            document.getElementById('hrEmpId').value = data.empId || '';
-        } else {
-            document.getElementById('hrPosition').value = '';
-            document.getElementById('hrEmpId').value = '';
-        }
+        const select = document.getElementById('hrEmployeeSelect'); if (!select.value) return;
+        const name = select.options[select.selectedIndex].text; const saved = localStorage.getItem('hr_data_' + name);
+        if (saved) { const data = JSON.parse(saved); document.getElementById('hrPosition').value = data.position || ''; document.getElementById('hrEmpId').value = data.empId || ''; } 
+        else { document.getElementById('hrPosition').value = ''; document.getElementById('hrEmpId').value = ''; }
     }
-
     function saveEmployeeData() {
-        const select = document.getElementById('hrEmployeeSelect');
-        if (!select.value) return;
+        const select = document.getElementById('hrEmployeeSelect'); if (!select.value) return;
         const name = select.options[select.selectedIndex].text;
-        localStorage.setItem('hr_data_' + name, JSON.stringify({ 
-            position: document.getElementById('hrPosition').value.trim(), 
-            empId: document.getElementById('hrEmpId').value.trim() 
-        }));
+        localStorage.setItem('hr_data_' + name, JSON.stringify({ position: document.getElementById('hrPosition').value.trim(), empId: document.getElementById('hrEmpId').value.trim() }));
     }
-
     function exportToWord() {
-        const select = document.getElementById('hrEmployeeSelect');
-        if (!select.value) { alert("請先上載更表並選擇員工！"); return; }
-        
-        const rowIndex = parseInt(select.value);
-        const empName = select.options[select.selectedIndex].text;
-        const position = document.getElementById('hrPosition').value.trim();
-        const empId = document.getElementById('hrEmpId').value.trim();
-        
+        const select = document.getElementById('hrEmployeeSelect'); if (!select.value) { alert("請先上載更表並選擇員工！"); return; }
+        const rowIndex = parseInt(select.value); const empName = select.options[select.selectedIndex].text;
+        const position = document.getElementById('hrPosition').value.trim(); const empId = document.getElementById('hrEmpId').value.trim();
         if (!rosterYear || !rosterMonth) { alert("無法從 Excel 讀取年月，請確保格式正確。"); return; }
-        
-        const rowData = rosterData[rowIndex];
-        let totalHours = 0;
-        
-        // 將儲存的 Base64 嵌入 HTML，保證離線可用
-        let imgHtml = savedLogoBase64 
-            ? `<img src="${savedLogoBase64}" style="width: 250px; height: auto;" />` 
-            : `<h3 style="color:#0056b3;">[請先於系統上載公司 Logo]</h3>`;
-
-        let htmlContent = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-            <meta charset='utf-8'>
-            <style>
-                body { font-family: 'MingLiU', 'PMingLiU', 'Microsoft JhengHei', sans-serif; font-size: 12pt; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-                th, td { border: 1px solid black; padding: 6px; text-align: center; }
-                .meta-table td { border: none; text-align: left; padding: 2px; }
-                h2 { text-align: center; font-size: 16pt; margin-bottom: 20px; }
-                .logo-container { text-align: left; margin-bottom: 15px; }
-            </style>
-        </head>
-        <body>
-            <div class="logo-container">
-                ${imgHtml}
-            </div>
-            <h2>手寫出勤記錄表 ( ${rosterYear} )年(${rosterMonth})月份</h2>
-            <table class="meta-table">
-                <tr>
-                    <td style="width: 25%;">姓名：${empName}</td>
-                    <td style="width: 25%;">職位：${position}</td>
-                    <td style="width: 25%;">部門/地盤：營業部</td>
-                    <td style="width: 25%;">員工編號：${empId}</td>
-                </tr>
-            </table>
-            <table>
-                <tr>
-                    <th style="width: 10%;">日</th>
-                    <th style="width: 30%;">工作起止時間</th>
-                    <th style="width: 45%;">工作內容</th>
-                    <th style="width: 15%;">共計</th>
-                </tr>`;
-
+        const rowData = rosterData[rowIndex]; let totalHours = 0;
+        let imgHtml = savedLogoBase64 ? `<img src="${savedLogoBase64}" style="width: 250px; height: auto;" />` : `<h3 style="color:#0056b3;">[未上載公司 Logo]</h3>`;
+        let htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><style>body { font-family: 'MingLiU', 'PMingLiU', 'Microsoft JhengHei', sans-serif; font-size: 12pt; } table { width: 100%; border-collapse: collapse; margin-bottom: 10px; } th, td { border: 1px solid black; padding: 6px; text-align: center; } .meta-table td { border: none; text-align: left; padding: 2px; } h2 { text-align: center; font-size: 16pt; margin-bottom: 20px; } .logo-container { text-align: left; margin-bottom: 15px; } </style></head><body><div class="logo-container">${imgHtml}</div><h2>手寫出勤記錄表 ( ${rosterYear} )年(${rosterMonth})月份</h2><table class="meta-table"><tr><td style="width: 25%;">姓名：${empName}</td><td style="width: 25%;">職位：${position}</td><td style="width: 25%;">部門/地盤：營業部</td><td style="width: 25%;">員工編號：${empId}</td></tr></table><table><tr><th style="width: 10%;">日</th><th style="width: 30%;">工作起止時間</th><th style="width: 45%;">工作內容</th><th style="width: 15%;">共計</th></tr>`;
         for (let day = 1; day <= daysInMonth; day++) {
-            const shiftVal = rowData[day + 2];
-            const parsed = parseShiftToHR(shiftVal);
-            htmlContent += `
-                <tr>
-                    <td>${day}</td>
-                    <td>${parsed.time}</td>
-                    <td>${parsed.desc}</td>
-                    <td>${parsed.hours === '--' ? '--' : parsed.hours + '小時'}</td>
-                </tr>`;
+            const parsed = parseShiftToHR(rowData[day + 2]);
+            htmlContent += `<tr><td>${day}</td><td>${parsed.time}</td><td>${parsed.desc}</td><td>${parsed.hours === '--' ? '--' : parsed.hours + '小時'}</td></tr>`;
             if (typeof parsed.hours === 'number') totalHours += parsed.hours;
         }
-
-        htmlContent += `
-            </table>
-            <p style="text-align: right; margin-top: 10px; font-weight: bold;">總計時數：${totalHours} 小時</p>
-        </body>
-        </html>`;
-
+        htmlContent += `</table><p style="text-align: right; margin-top: 10px; font-weight: bold;">總計時數：${totalHours} 小時</p></body></html>`;
         const monthsEng = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const monthWord = monthsEng[parseInt(rosterMonth) - 1] || rosterMonth;
-        const safeName = empName.replace(/ /g, '_');
-        const fileName = `${safeName}出勤記錄表${monthWord} ${rosterYear}.doc`;
-
-        const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(htmlContent);
-        const fileDownload = document.createElement("a");
-        document.body.appendChild(fileDownload);
-        fileDownload.href = source;
-        fileDownload.download = fileName;
-        fileDownload.click();
-        document.body.removeChild(fileDownload);
+        const monthWord = monthsEng[parseInt(rosterMonth) - 1] || rosterMonth; const safeName = empName.replace(/ /g, '_');
+        const fileDownload = document.createElement("a"); document.body.appendChild(fileDownload);
+        fileDownload.href = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(htmlContent); fileDownload.download = `${safeName}出勤記錄表${monthWord} ${rosterYear}.doc`; fileDownload.click(); document.body.removeChild(fileDownload);
     }
 
-    // --- 跑道區成交過濾模組 ---
+    // ==========================================
+    // 6. 跑道區成交 終極「絕對精準」配對模組
+    // ==========================================
+    const RUNWAY_KEYWORDS = {
+        "維港1號": "OV", "維港一號": "OV", "啟德海灣": "KTM", "啟德海灣(I)": "KTM", "啟德海灣(II)": "KTM",
+        "柏蔚森": "PF", "MIAMIQUAY": "MQ", "MIAMIQUAY(I)": "MQ", "MIAMIQUAY(II)": "MQ",
+        "DOUBLECOAST": "DC", "DOUBLECOAST(I)": "DC", "DOUBLECOAST(III)": "DC",
+        "維港．雙鑽": "TV", "維港·雙鑽": "TV", "維港‧雙鑽": "TV", "維港雙鑽": "TV",
+        "天璽．海": "CH", "天璽·海": "CH", "天璽‧海": "CH", "天璽海": "CH", "天璽．海(I)": "CH", "天璽·海(I)": "CH", "天璽‧海(I)": "CH", "天璽海(I)": "CH",
+        "天璽．海2B": "CH", "天璽·海2B": "CH", "天璽‧海2B": "CH", "天璽海2B": "CH", "天璽．海2A": "CH", "天璽·海2A": "CH", "天璽‧海2A": "CH", "天璽海2A": "CH",
+        "天瀧": "TK", "澐璟": "PANO", "維港．灣畔": "VV", "維港·灣畔": "VV", "維港‧灣畔": "VV", "維港灣畔": "VV", "VICTORIABLOSSOM": "VB"
+    };
+
+    function normalizeUnit(s) {
+        s = s.toUpperCase().replace(/\s+/g, '');
+        if (s.includes('-')) {
+            let parts = s.split('-');
+            if (parts.length >= 3) {
+                if (/^[A-Z]+$/.test(parts[1]) && /^\d+[A-Z]?$/.test(parts[2])) {
+                    s = parts[0] + parts[2] + parts[1];
+                }
+            }
+        } else {
+            let match = s.match(/^(\d+[A-Z]?|[A-Z]+\d+)([A-Z]+)(\d+[A-Z]?)$/);
+            if (match) { s = match[1] + match[3] + match[2]; }
+        }
+        return s.replace(/[^A-Z0-9]/g, ''); 
+    }
+
+    function searchFlatMix(projectCode, cleanUnit) {
+        if (!flatMixData || flatMixData.length === 0 || !cleanUnit) return null;
+        let fallbackMatch = null;
+        for (let i = 1; i < flatMixData.length; i++) {
+            let row = flatMixData[i];
+            if (!row || row.length < 12) continue;
+            let rowCode = (row[0] || "").toString().toUpperCase().trim();
+            if (rowCode === projectCode) {
+                let csvUnitRaw = (row[1] || "").toString().toUpperCase();
+                let cleanCSV = csvUnitRaw.replace(/[^A-Z0-9]/g, '');
+                let layout = row[9] || "未知戶型";  
+                let view = row[11] || "未知景觀";   
+                let result = `（${view}--${layout}）`;
+
+                if (cleanCSV === cleanUnit) { return result; }
+                
+                if (!fallbackMatch) {
+                    if (cleanCSV.endsWith(cleanUnit) && cleanCSV.length - cleanUnit.length <= 2) {
+                        fallbackMatch = result;
+                    } else if (cleanCSV.includes(cleanUnit) && cleanCSV.length - cleanUnit.length <= 2) {
+                        fallbackMatch = result;
+                    }
+                }
+            }
+        }
+        return fallbackMatch;
+    }
+
     function filterTransactions() {
         const rawText = document.getElementById('rawTransactions').value;
         if(!rawText.trim()) return;
 
-        // 目標過濾關鍵字
-        const keywords = [
-            "天璽·海", "天璽‧海", "天璽·海(I)", "天璽·海2B", "天璽·海2A", 
-            "柏蔚森", "澐璟", "Miami Quay", "維港·灣畔", "維港‧灣畔", 
-            "維港·雙鑽", "維港‧雙鑽", "啟德海灣", "Double Coast", "天瀧", "維港1號", "維港一號"
-        ];
-        
         const separator = "🔸🔹🔸🔹🔸🔹";
-        const blocks = rawText.split(separator);
-        
-        if(blocks.length < 2) {
-            alert("未能偵測到分隔線(🔸🔹🔸🔹🔸🔹)，請確保貼上完整訊息。");
-            return;
-        }
+        const blocks = rawText.split(/🔸🔹🔸🔹🔸🔹/);
+        if(blocks.length < 2) { alert("未能偵測到分隔線(🔸🔹🔸🔹🔸🔹)，請確保貼上完整訊息。"); return; }
 
         const header = blocks.shift(); 
         let dateStr = "今日";
-        const dateMatch = header.match(/(.*?)一手市場成交/);
-        if(dateMatch) {
-            dateStr = dateMatch[1].trim();
-        }
+        const dateMatch = header.match(/(.*?)(一手市場成交|一手成交).*?[:：]\s*\(\d+\)/) || header.match(/(.*?)(一手市場成交|一手成交)/);
+        if(dateMatch) { dateStr = dateMatch[1].trim(); }
 
         let validBlocks = [];
         let totalCount = 0;
 
         blocks.forEach(block => {
             if(!block.trim()) return;
+            let lines = block.split('\n').map(l => l.trim()).filter(l => l);
+            if(lines.length === 0) return;
             
-            const isRunway = keywords.some(kw => block.includes(kw));
-            if(isRunway) {
-                validBlocks.push(block.trim());
-                // 尋找「：數字」或「:數字」來計算成交宗數
-                const countMatch = block.match(/[:：]\s*(\d+)/);
-                if(countMatch) {
-                    totalCount += parseInt(countMatch[1], 10);
+            let projLine = lines[0]; 
+            let upperProj = projLine.toUpperCase().replace(/\s+/g, '');
+            
+            let projectCode = null;
+            for (const [key, code] of Object.entries(RUNWAY_KEYWORDS)) {
+                if (upperProj.includes(key)) { projectCode = code; break; }
+            }
+            
+            if (projectCode) {
+                let agencies = [];
+                let currentAgency = null;
+                let standaloneUnits = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    let line = lines[i];
+                    let agencyMatch = line.match(/^(.*?)([:：])\s*(\d+)\s*$/);
+                    if (agencyMatch && !line.includes('(') && !line.includes('（')) {
+                        currentAgency = { prefix: agencyMatch[1], colon: agencyMatch[2], units: [] };
+                        agencies.push(currentAgency);
+                    } else {
+                        if (currentAgency) {
+                            currentAgency.units.push(line);
+                        } else {
+                            standaloneUnits.push(line);
+                        }
+                    }
                 }
+                
+                let processedStandalone = [];
+                let projectUnitCount = 0;
+                
+                const processUnit = (line) => {
+                    projectUnitCount++;
+                    let cleanLine = line.replace(/[期座室樓層]/g, '');
+                    let prefix = cleanLine.split(/[\u4e00-\u9fa5]/)[0]; 
+                    let rawUnitToken = prefix.trim().split(/\s+/)[0];   
+                    
+                    let unitToken = normalizeUnit(rawUnitToken);        
+                    let info = searchFlatMix(projectCode, unitToken);   
+                    
+                    return info ? `${line} ${info}` : line;
+                };
+
+                standaloneUnits.forEach(u => processedStandalone.push(processUnit(u)));
+                
+                agencies.forEach(ag => {
+                    let processed = [];
+                    ag.units.forEach(u => processed.push(processUnit(u)));
+                    ag.processedUnits = processed;
+                    ag.actualCount = ag.units.length; 
+                });
+                
+                let origCountMatch = projLine.match(/[:：]\s*(\d+)/);
+                let origCount = origCountMatch ? parseInt(origCountMatch[1], 10) : 0;
+                let finalProjCount = projectUnitCount > 0 ? projectUnitCount : origCount;
+                totalCount += finalProjCount; 
+                
+                let newProjLine = projLine;
+                if (projLine.match(/[:：]\s*\d+/)) {
+                    newProjLine = projLine.replace(/([:：]\s*)\d+/, `$1${finalProjCount}`);
+                } else {
+                    newProjLine = `${projLine}：${finalProjCount}`;
+                }
+                
+                let blockLines = [newProjLine, ...processedStandalone];
+                agencies.forEach(ag => {
+                    if (ag.actualCount > 0) {
+                        blockLines.push(`${ag.prefix}${ag.colon}${ag.actualCount}`);
+                        blockLines.push(...ag.processedUnits);
+                    } else if (ag.actualCount === 0 && projectUnitCount === 0) {
+                        blockLines.push(`${ag.prefix}${ag.colon}${origCountMatch ? origCount : 1}`);
+                    }
+                });
+                
+                validBlocks.push(blockLines.join('\n'));
             }
         });
 
         let finalText = `${dateStr}一手跑道區成交：(${totalCount})\n${separator}\n`;
         finalText += validBlocks.join(`\n${separator}\n`);
-        if(validBlocks.length > 0) {
-            finalText += `\n${separator}`;
-        }
+        if(validBlocks.length > 0) { finalText += `\n${separator}`; }
 
         document.getElementById('filteredTransactions').value = finalText;
     }
 
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed: ', err)); });
+    function copyToClipboard(elementId) {
+        const t = document.getElementById(elementId);
+        if(!t.value || t.value.includes("請先上載")) { alert("未能複製空內容"); return; }
+        t.select(); t.setSelectionRange(0, 99999); navigator.clipboard.writeText(t.value).then(() => alert("✅ 已複製")).catch(() => alert("請手動複製"));
     }
+
+    if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed: ', err)); }); }
 </script>
 </body>
 </html>
