@@ -1,5 +1,5 @@
-// 已升級至 v14，引入 IndexedDB 永久離線記憶體
-const CACHE_NAME = 'vv-roster-v14';
+// 已升級至 v15，新增 688 銷售分頁、以及將 Roster 升級至 IndexedDB 永久內置
+const CACHE_NAME = 'vv-roster-v15';
 
 const urlsToCache = [
   './index.html',

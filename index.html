@@ -23,13 +23,14 @@
         label { font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.95rem; }
         input[type="file"], input[type="date"], input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
         
-        .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; border-radius: 5px 5px 0 0; overflow: hidden; }
-        .tab-btn { flex: 1; padding: 10px 5px; background: #eef2f5; border: none; cursor: pointer; font-weight: bold; color: #555; font-size: 12px; transition: 0.3s; border-right: 1px solid #ddd; }
+        .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; border-radius: 5px 5px 0 0; overflow: hidden; flex-wrap: wrap; }
+        .tab-btn { flex: 1 1 18%; padding: 10px 2px; background: #eef2f5; border: none; cursor: pointer; font-weight: bold; color: #555; font-size: 12px; transition: 0.3s; border-right: 1px solid #ddd; text-align: center; }
         .tab-btn:last-child { border-right: none; }
         .tab-btn.active[data-target="vvTab"] { background: #0056b3; color: white; }
         .tab-btn.active[data-target="tvTab"] { background: #d4af37; color: white; }
         .tab-btn.active[data-target="hrTab"] { background: #28a745; color: white; }
         .tab-btn.active[data-target="marketTab"] { background: #8e44ad; color: white; }
+        .tab-btn.active[data-target="sales688Tab"] { background: #e67e22; color: white; }
         
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
@@ -46,15 +47,23 @@
         .btn-del { background: #d9534f; color: white; border: none; padding: 10px; border-radius: 5px; font-weight: bold; }
         .btn-add { background: #e9ecef; color: #495057; border: 1px dashed #ced4da; padding: 12px; width: 100%; border-radius: 5px; font-weight: bold; margin-bottom: 15px; }
         
-        button.action-btn { color: white; border: none; padding: 15px; font-size: 16px; border-radius: 5px; width: 100%; margin-bottom: 15px; font-weight: bold; }
+        button.action-btn { color: white; border: none; padding: 15px; font-size: 16px; border-radius: 5px; width: 100%; margin-bottom: 15px; font-weight: bold; cursor: pointer; }
         button.vv-btn { background-color: #0056b3; }
         button.tv-btn { background-color: #d4af37; }
         button.hr-btn { background-color: #28a745; }
         button.market-btn { background-color: #8e44ad; }
+        button.sales-btn { background-color: #e67e22; }
         
         .result-area { height: 250px; background-color: #eef2f5; font-size: 14px; }
         .save-badge { float: right; font-size: 0.8em; color: #28a745; display: none; }
         #logoPreview { max-width: 150px; margin-top: 10px; border: 1px solid #ccc; border-radius: 4px; display: none; }
+        
+        /* 688 Table Styles */
+        .sales-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; background: white; }
+        .sales-table th { background-color: #f39c12; color: white; padding: 8px; border: 1px solid #ddd; text-align: center; }
+        .sales-table td { padding: 8px; border: 1px solid #ddd; text-align: center; }
+        .sales-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .sales-table tr.total-row { font-weight: bold; background-color: #fcf3cf; }
     </style>
 </head>
 <body>
@@ -67,12 +76,16 @@
         <button class="tab-btn" data-target="tvTab" onclick="switchTab('tvTab', this)">💎 雙鑽</button>
         <button class="tab-btn" data-target="hrTab" onclick="switchTab('hrTab', this)">📄 HR</button>
         <button class="tab-btn" data-target="marketTab" onclick="switchTab('marketTab', this)">📊 成交</button>
+        <button class="tab-btn" data-target="sales688Tab" onclick="switchTab('sales688Tab', this)">📈 688銷售</button>
     </div>
 
     <div id="globalUpload" class="section" style="border-left-color: #333; background: #f0f0f0;">
-        <label>📂 上載 Excel 更表 (.xlsx) [灣畔/雙鑽/HR共用]</label>
-        <input type="file" id="excelFile" accept=".xlsx, .xls">
-        <div id="uploadStatus" style="color:#d9534f; font-size:0.85em; margin-top:5px; font-weight:bold;">⚠️ 未上載更表</div>
+        <label id="rosterUploadLabel">📂 首次設定：上載更表 Excel (.xlsx) [灣畔/雙鑽/HR共用]</label>
+        <div class="flex-row" id="rosterUploadRow">
+            <input type="file" id="excelFile" accept=".xlsx, .xls">
+        </div>
+        <div id="uploadStatus" style="color:#d9534f; font-size:0.85em; margin-top:5px; font-weight:bold;">⚠️ 未讀取更表數據</div>
+        <button id="resetRosterBtn" onclick="resetRoster()" style="display:none; margin-top:10px; background:#d9534f; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">🔄 清除更表並重新上載</button>
     </div>
 
     <div id="vvTab" class="tab-content active">
@@ -142,7 +155,7 @@
                 <input type="file" id="flatMixFile" accept=".xlsx, .xls">
             </div>
             <div id="flatMixStatus" style="color:#d9534f; font-size:0.85em; margin-top:5px; font-weight:bold;">⚠️ 未讀取 Flat Mix 數據</div>
-            <button id="resetFlatMixBtn" onclick="resetFlatMix()" style="display:none; margin-top:10px; background:#d9534f; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">🔄 清除數據並重新上載</button>
+            <button id="resetFlatMixBtn" onclick="resetData('FlatMixStore', 'flatMixStatus', 'flatMixUploadRow', 'resetFlatMixBtn', 'flatMixUploadLabel', '📂 首次設定：上載跑道區 Flat Mix Excel')" style="display:none; margin-top:10px; background:#d9534f; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">🔄 清除數據並重新上載</button>
         </div>
 
         <div class="section" style="border-left-color: #8e44ad; background: #faf5fd;">
@@ -157,68 +170,91 @@
         </div>
         <button class="action-btn market-btn" onclick="copyToClipboard('filteredTransactions')">📋 複製結果</button>
     </div>
+
+    <div id="sales688Tab" class="tab-content">
+        <div class="section" style="border-left-color: #e67e22; background: #fffcf8;">
+            <label>📂 上載 688 每周銷售 Excel (.xlsx)</label>
+            <input type="file" id="file688" accept=".xlsx, .xls">
+        </div>
+        
+        <div class="section" style="border-left-color: #e67e22; background: #fffcf8;">
+            <label>📊 港澳公司上周售出單位及合約額概況：</label>
+            <div id="table688Container" style="overflow-x: auto; min-height: 150px; background: white; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                <p style="text-align:center; color:#999; font-size:13px; margin-top:50px;">請上載 Excel 檔案以顯示數據...</p>
+            </div>
+            <button class="action-btn sales-btn" style="margin-top: 15px; margin-bottom:0;" onclick="export688Table()">📥 匯出表格至 Excel (.xlsx)</button>
+        </div>
+    </div>
 </div>
 
 <script>
     // ==========================================
-    // 0. IndexedDB 永久記憶體模組
+    // 0. IndexedDB 永久記憶體模組 (包含 FlatMix 及 Roster)
     // ==========================================
-    const DB_NAME = "ColiFlatMixDB";
-    const STORE_NAME = "FlatMixStore";
+    const DB_NAME = "ColiAppDB";
+    const STORE_FLATMIX = "FlatMixStore";
+    const STORE_ROSTER = "RosterStore";
+    const DB_VERSION = 2; // 升級 Version 以支援雙 Store
 
     function openDB() {
         return new Promise((resolve, reject) => {
-            const req = indexedDB.open(DB_NAME, 1);
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
             req.onupgradeneeded = (e) => {
                 const db = e.target.result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    db.createObjectStore(STORE_NAME, { keyPath: "id" });
-                }
+                if (!db.objectStoreNames.contains(STORE_FLATMIX)) db.createObjectStore(STORE_FLATMIX, { keyPath: "id" });
+                if (!db.objectStoreNames.contains(STORE_ROSTER)) db.createObjectStore(STORE_ROSTER, { keyPath: "id" });
             };
             req.onsuccess = (e) => resolve(e.target.result);
             req.onerror = (e) => reject(e.target.error);
         });
     }
 
-    async function saveFlatMixToDB(data) {
+    async function saveDataToDB(storeName, dataId, data) {
         try {
             const db = await openDB();
             return new Promise((resolve, reject) => {
-                const tx = db.transaction([STORE_NAME], "readwrite");
-                const store = tx.objectStore(STORE_NAME);
-                store.put({ id: "flatMixData", data: data });
+                const tx = db.transaction([storeName], "readwrite");
+                const store = tx.objectStore(storeName);
+                store.put({ id: dataId, data: data });
                 tx.oncomplete = resolve;
                 tx.onerror = reject;
             });
         } catch(e) { console.error("DB Save Error", e); }
     }
 
-    async function loadFlatMixFromDB() {
+    async function loadDataFromDB(storeName, dataId) {
         try {
             const db = await openDB();
             return new Promise((resolve, reject) => {
-                const tx = db.transaction([STORE_NAME], "readonly");
-                const store = tx.objectStore(STORE_NAME);
-                const req = store.get("flatMixData");
+                const tx = db.transaction([storeName], "readonly");
+                const store = tx.objectStore(storeName);
+                const req = store.get(dataId);
                 req.onsuccess = () => resolve(req.result ? req.result.data : null);
                 req.onerror = reject;
             });
         } catch(e) { console.error("DB Load Error", e); return null; }
     }
 
-    function resetFlatMix() {
-        if(confirm("確定要清除現有的 Flat Mix 數據庫並重新上載？")) {
-            flatMixData = [];
-            document.getElementById('flatMixUploadRow').style.display = 'block';
-            document.getElementById('resetFlatMixBtn').style.display = 'none';
-            document.getElementById('flatMixStatus').innerText = "⚠️ 數據已清除，請重新上載";
-            document.getElementById('flatMixStatus').style.color = "#d9534f";
-            document.getElementById('flatMixUploadLabel').innerText = "📂 首次設定：上載跑道區 Flat Mix Excel";
+    function resetData(storeName, statusId, uploadRowId, resetBtnId, labelId, defaultLabel) {
+        if(confirm("確定要清除現有數據並重新上載嗎？")) {
+            if(storeName === STORE_FLATMIX) flatMixData = [];
+            if(storeName === STORE_ROSTER) rosterData = [];
+            
+            document.getElementById(uploadRowId).style.display = 'block';
+            document.getElementById(resetBtnId).style.display = 'none';
+            document.getElementById(statusId).innerText = "⚠️ 數據已清除，請重新上載";
+            document.getElementById(statusId).style.color = "#d9534f";
+            document.getElementById(labelId).innerText = defaultLabel;
+            
             openDB().then(db => {
-                const tx = db.transaction([STORE_NAME], "readwrite");
-                tx.objectStore(STORE_NAME).delete("flatMixData");
+                const tx = db.transaction([storeName], "readwrite");
+                tx.objectStore(storeName).delete(storeName === STORE_FLATMIX ? "flatMixData" : "rosterData");
             });
         }
+    }
+    
+    function resetRoster() {
+        resetData(STORE_ROSTER, 'uploadStatus', 'rosterUploadRow', 'resetRosterBtn', 'rosterUploadLabel', '📂 首次設定：上載更表 Excel (.xlsx) [灣畔/雙鑽/HR共用]');
     }
 
     // ==========================================
@@ -246,15 +282,30 @@
         document.getElementById('tvDutyDate').valueAsDate = new Date(); 
         loadSettings(); 
         
-        // 自動拉取已儲存嘅 Flat Mix 數據
-        const savedFlatMix = await loadFlatMixFromDB();
+        // 載入永久 Flat Mix 數據
+        const savedFlatMix = await loadDataFromDB(STORE_FLATMIX, "flatMixData");
         if (savedFlatMix && savedFlatMix.length > 0) {
             flatMixData = savedFlatMix;
             document.getElementById('flatMixStatus').innerText = `✅ Flat Mix 數據庫已永久內置 (${flatMixData.length} 筆數據)`;
             document.getElementById('flatMixStatus').style.color = "#28a745";
-            document.getElementById('flatMixUploadRow').style.display = 'none'; // 隱藏上載掣
-            document.getElementById('resetFlatMixBtn').style.display = 'inline-block'; // 顯示清除掣
+            document.getElementById('flatMixUploadRow').style.display = 'none'; 
+            document.getElementById('resetFlatMixBtn').style.display = 'inline-block'; 
             document.getElementById('flatMixUploadLabel').innerText = "📂 Flat Mix 數據庫狀態";
+        }
+
+        // 載入永久 Roster 數據
+        const savedRoster = await loadDataFromDB(STORE_ROSTER, "rosterData");
+        if (savedRoster && savedRoster.length > 0) {
+            rosterData = savedRoster;
+            document.getElementById('uploadStatus').innerText = `✅ 更表數據庫已永久內置`;
+            document.getElementById('uploadStatus').style.color = "#28a745";
+            document.getElementById('rosterUploadRow').style.display = 'none'; 
+            document.getElementById('resetRosterBtn').style.display = 'inline-block'; 
+            document.getElementById('rosterUploadLabel').innerText = "📂 更表數據庫狀態";
+            
+            // 初始化更表時間
+            if (rosterData[1] && rosterData[1][0]) { const match = rosterData[1][0].match(/(\d{4})年(\d{1,2})月份/); if (match) { rosterYear = match[1]; rosterMonth = match[2]; daysInMonth = new Date(rosterYear, rosterMonth, 0).getDate(); } }
+            populateEmployeeDropdown(); generateMessage('vv'); generateMessage('tv'); 
         }
     };
 
@@ -262,7 +313,7 @@
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active'); btn.classList.add('active');
-        document.getElementById('globalUpload').style.display = (tabId === 'marketTab') ? 'none' : 'block';
+        document.getElementById('globalUpload').style.display = (tabId === 'marketTab' || tabId === 'sales688Tab') ? 'none' : 'block';
     }
 
     // ==========================================
@@ -271,10 +322,10 @@
     function loadSettings() {
         savedLogoBase64 = localStorage.getItem('hr_logo_base64');
         if(savedLogoBase64) { document.getElementById('logoPreview').src = savedLogoBase64; document.getElementById('logoPreview').style.display = 'block'; }
-        document.getElementById('vvWeekdayAmb').value = localStorage.getItem('vv_wk_amb_v14') || "15"; document.getElementById('vvHolidayAmb').value = localStorage.getItem('vv_hol_amb_v14') || "16";
-        vvFlats = JSON.parse(localStorage.getItem('vv_flats_v14')) || JSON.parse(JSON.stringify(defaultVVFlats)); document.getElementById('vv_remarks').value = localStorage.getItem('vv_remarks_v14') || "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
-        document.getElementById('tvWeekdayAmb').value = localStorage.getItem('tv_wk_amb_v14') || "3"; document.getElementById('tvHolidayAmb').value = localStorage.getItem('tv_hol_amb_v14') || "4";
-        tvFlats = JSON.parse(localStorage.getItem('tv_flats_v14')) || JSON.parse(JSON.stringify(defaultTVFlats)); document.getElementById('tv_remarks').value = localStorage.getItem('tv_remarks_v14') || "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
+        document.getElementById('vvWeekdayAmb').value = localStorage.getItem('vv_wk_amb_v15') || "15"; document.getElementById('vvHolidayAmb').value = localStorage.getItem('vv_hol_amb_v15') || "16";
+        vvFlats = JSON.parse(localStorage.getItem('vv_flats_v15')) || JSON.parse(JSON.stringify(defaultVVFlats)); document.getElementById('vv_remarks').value = localStorage.getItem('vv_remarks_v15') || "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
+        document.getElementById('tvWeekdayAmb').value = localStorage.getItem('tv_wk_amb_v15') || "3"; document.getElementById('tvHolidayAmb').value = localStorage.getItem('tv_hol_amb_v15') || "4";
+        tvFlats = JSON.parse(localStorage.getItem('tv_flats_v15')) || JSON.parse(JSON.stringify(defaultTVFlats)); document.getElementById('tv_remarks').value = localStorage.getItem('tv_remarks_v15') || "#為已裝飾無改動示範單位\n*為已裝飾有改動示範單位\n\n示位單位狀況大致良好，均達開放標準。";
         renderFlats('vv'); renderFlats('tv');
     }
 
@@ -295,8 +346,8 @@
     function deleteFlat(type, index) { (type === 'vv') ? vvFlats.splice(index, 1) : tvFlats.splice(index, 1); renderFlats(type); saveSettings(type); }
     function handleInput(type) { generateMessage(type); saveSettings(type); }
     function saveSettings(type) {
-        if (type === 'vv') { localStorage.setItem('vv_flats_v14', JSON.stringify(vvFlats)); localStorage.setItem('vv_remarks_v14', document.getElementById('vv_remarks').value); localStorage.setItem('vv_wk_amb_v14', document.getElementById('vvWeekdayAmb').value); localStorage.setItem('vv_hol_amb_v14', document.getElementById('vvHolidayAmb').value); } 
-        else { localStorage.setItem('tv_flats_v14', JSON.stringify(tvFlats)); localStorage.setItem('tv_remarks_v14', document.getElementById('tv_remarks').value); localStorage.setItem('tv_wk_amb_v14', document.getElementById('tvWeekdayAmb').value); localStorage.setItem('tv_hol_amb_v14', document.getElementById('tvHolidayAmb').value); }
+        if (type === 'vv') { localStorage.setItem('vv_flats_v15', JSON.stringify(vvFlats)); localStorage.setItem('vv_remarks_v15', document.getElementById('vv_remarks').value); localStorage.setItem('vv_wk_amb_v15', document.getElementById('vvWeekdayAmb').value); localStorage.setItem('vv_hol_amb_v15', document.getElementById('vvHolidayAmb').value); } 
+        else { localStorage.setItem('tv_flats_v15', JSON.stringify(tvFlats)); localStorage.setItem('tv_remarks_v15', document.getElementById('tv_remarks').value); localStorage.setItem('tv_wk_amb_v15', document.getElementById('tvWeekdayAmb').value); localStorage.setItem('tv_hol_amb_v15', document.getElementById('tvHolidayAmb').value); }
         const badge = document.getElementById(`${type}SaveBadge`); badge.style.display = 'inline'; setTimeout(() => { badge.style.display = 'none'; }, 2000);
     }
 
@@ -305,14 +356,26 @@
     // ==========================================
     document.getElementById('excelFile').addEventListener('change', function(e) {
         const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             try {
-                const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
-                rosterData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
-                document.getElementById('uploadStatus').innerText = `✅ Excel 讀取成功`; document.getElementById('uploadStatus').style.color = "#28a745";
-                if (rosterData[1] && rosterData[1][0]) { const match = rosterData[1][0].match(/(\d{4})年(\d{1,2})月份/); if (match) { rosterYear = match[1]; rosterMonth = match[2]; daysInMonth = new Date(rosterYear, rosterMonth, 0).getDate(); } }
-                populateEmployeeDropdown(); generateMessage('vv'); generateMessage('tv'); 
-            } catch (error) { document.getElementById('uploadStatus').innerText = "❌ 格式錯誤"; }
+                document.getElementById('uploadStatus').innerText = `🔄 正在寫入更表數據庫，請稍候...`;
+                document.getElementById('uploadStatus').style.color = "#d4af37";
+                
+                setTimeout(async () => {
+                    const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    rosterData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
+                    await saveDataToDB(STORE_ROSTER, "rosterData", rosterData);
+                    
+                    document.getElementById('uploadStatus').innerText = `✅ 更表數據已成功永久內置！以後無需再上載。`; 
+                    document.getElementById('uploadStatus').style.color = "#28a745";
+                    document.getElementById('rosterUploadRow').style.display = 'none';
+                    document.getElementById('resetRosterBtn').style.display = 'inline-block';
+                    document.getElementById('rosterUploadLabel').innerText = "📂 更表數據庫狀態";
+                    
+                    if (rosterData[1] && rosterData[1][0]) { const match = rosterData[1][0].match(/(\d{4})年(\d{1,2})月份/); if (match) { rosterYear = match[1]; rosterMonth = match[2]; daysInMonth = new Date(rosterYear, rosterMonth, 0).getDate(); } }
+                    populateEmployeeDropdown(); generateMessage('vv'); generateMessage('tv'); 
+                }, 100);
+            } catch (error) { document.getElementById('uploadStatus').innerText = "❌ 格式錯誤"; document.getElementById('uploadStatus').style.color = "#d9534f"; }
         }; reader.readAsArrayBuffer(file);
     });
 
@@ -326,7 +389,7 @@
                 setTimeout(async () => {
                     const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
                     flatMixData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1}); 
-                    await saveFlatMixToDB(flatMixData);
+                    await saveDataToDB(STORE_FLATMIX, "flatMixData", flatMixData);
                     
                     document.getElementById('flatMixStatus').innerText = `✅ 數據已成功永久內置 (${flatMixData.length} 筆數據)！以後無需再上載。`; 
                     document.getElementById('flatMixStatus').style.color = "#28a745";
@@ -341,7 +404,7 @@
         }; reader.readAsArrayBuffer(file);
     });
 
-    // --- (HR 出勤表代碼) ---
+    // --- (HR 出勤表及更表生成代碼) ---
     function parseShiftToHR(shiftValue) { let val = (shiftValue || "").toString().trim().toUpperCase(); if (!val) return { time: '--', desc: '--', hours: '--' }; if (EXACT_LEAVE_TYPES[val]) return { time: EXACT_LEAVE_TYPES[val], desc: EXACT_LEAVE_TYPES[val] + '一天', hours: '--' }; for (const [symbol, leaveName] of Object.entries(SYMBOL_LEAVE_TYPES)) { if (val.includes(symbol)) return { time: leaveName, desc: leaveName + '一天', hours: '--' }; } let locations = []; let timeRange = ''; let foundWork = false; val.split('/').forEach(p => { const trimmed = p.trim(); if (WORK_LOCATIONS[trimmed]) { foundWork = true; locations.push(WORK_LOCATIONS[trimmed].desc); if (timeRange === '') timeRange = WORK_LOCATIONS[trimmed].time; } }); if (foundWork) return { time: timeRange, desc: locations.join(' / '), hours: 8.5 }; return { time: '--', desc: val, hours: '--' }; }
     function generateMessage(type) {
         const isVV = type === 'vv';
@@ -416,172 +479,110 @@
     }
 
     // ==========================================
-    // 6. 跑道區成交 終極「絕對精準」配對模組
+    // 6. 跑道區成交 終極「絕對精準」配對模組 (代碼省略以保持精簡，功能不變)
     // ==========================================
-    const RUNWAY_KEYWORDS = {
-        "維港1號": "OV", "維港一號": "OV", "啟德海灣": "KTM", "啟德海灣(I)": "KTM", "啟德海灣(II)": "KTM",
-        "柏蔚森": "PF", "MIAMIQUAY": "MQ", "MIAMIQUAY(I)": "MQ", "MIAMIQUAY(II)": "MQ",
-        "DOUBLECOAST": "DC", "DOUBLECOAST(I)": "DC", "DOUBLECOAST(III)": "DC",
-        "維港．雙鑽": "TV", "維港·雙鑽": "TV", "維港‧雙鑽": "TV", "維港雙鑽": "TV",
-        "天璽．海": "CH", "天璽·海": "CH", "天璽‧海": "CH", "天璽海": "CH", "天璽．海(I)": "CH", "天璽·海(I)": "CH", "天璽‧海(I)": "CH", "天璽海(I)": "CH",
-        "天璽．海2B": "CH", "天璽·海2B": "CH", "天璽‧海2B": "CH", "天璽海2B": "CH", "天璽．海2A": "CH", "天璽·海2A": "CH", "天璽‧海2A": "CH", "天璽海2A": "CH",
-        "天瀧": "TK", "澐璟": "PANO", "維港．灣畔": "VV", "維港·灣畔": "VV", "維港‧灣畔": "VV", "維港灣畔": "VV", "VICTORIABLOSSOM": "VB"
-    };
+    const RUNWAY_KEYWORDS = { "維港1號": "OV", "維港一號": "OV", "啟德海灣": "KTM", "啟德海灣(I)": "KTM", "啟德海灣(II)": "KTM", "柏蔚森": "PF", "MIAMIQUAY": "MQ", "MIAMIQUAY(I)": "MQ", "MIAMIQUAY(II)": "MQ", "DOUBLECOAST": "DC", "DOUBLECOAST(I)": "DC", "DOUBLECOAST(III)": "DC", "維港．雙鑽": "TV", "維港·雙鑽": "TV", "維港‧雙鑽": "TV", "維港雙鑽": "TV", "天璽．海": "CH", "天璽·海": "CH", "天璽‧海": "CH", "天璽海": "CH", "天璽．海(I)": "CH", "天璽·海(I)": "CH", "天璽‧海(I)": "CH", "天璽海(I)": "CH", "天璽．海2B": "CH", "天璽·海2B": "CH", "天璽‧海2B": "CH", "天璽海2B": "CH", "天璽．海2A": "CH", "天璽·海2A": "CH", "天璽‧海2A": "CH", "天璽海2A": "CH", "天瀧": "TK", "澐璟": "PANO", "維港．灣畔": "VV", "維港·灣畔": "VV", "維港‧灣畔": "VV", "維港灣畔": "VV", "VICTORIABLOSSOM": "VB" };
+    function normalizeUnit(s) { s = s.toUpperCase().replace(/\s+/g, ''); if (s.includes('-')) { let parts = s.split('-'); if (parts.length >= 3) { if (/^[A-Z]+$/.test(parts[1]) && /^\d+[A-Z]?$/.test(parts[2])) { s = parts[0] + parts[2] + parts[1]; } } } else { let match = s.match(/^(\d+[A-Z]?|[A-Z]+\d+)([A-Z]+)(\d+[A-Z]?)$/); if (match) { s = match[1] + match[3] + match[2]; } } return s.replace(/[^A-Z0-9]/g, ''); }
+    function searchFlatMix(projectCode, cleanUnit) { if (!flatMixData || flatMixData.length === 0 || !cleanUnit) return null; let fallbackMatch = null; for (let i = 1; i < flatMixData.length; i++) { let row = flatMixData[i]; if (!row || row.length < 12) continue; let rowCode = (row[0] || "").toString().toUpperCase().trim(); if (rowCode === projectCode) { let csvUnitRaw = (row[1] || "").toString().toUpperCase(); let cleanCSV = csvUnitRaw.replace(/[^A-Z0-9]/g, ''); let layout = row[9] || "未知戶型"; let view = row[11] || "未知景觀"; let result = `（${view}--${layout}）`; if (cleanCSV === cleanUnit) { return result; } if (!fallbackMatch) { if (cleanCSV.endsWith(cleanUnit) && cleanCSV.length - cleanUnit.length <= 2) { fallbackMatch = result; } else if (cleanCSV.includes(cleanUnit) && cleanCSV.length - cleanUnit.length <= 2) { fallbackMatch = result; } } } } return fallbackMatch; }
+    function filterTransactions() { const rawText = document.getElementById('rawTransactions').value; if(!rawText.trim()) return; const separator = "🔸🔹🔸🔹🔸🔹"; const blocks = rawText.split(/🔸🔹🔸🔹🔸🔹/); if(blocks.length < 2) { alert("未能偵測到分隔線(🔸🔹🔸🔹🔸🔹)，請確保貼上完整訊息。"); return; } const header = blocks.shift(); let dateStr = "今日"; const dateMatch = header.match(/(.*?)(一手市場成交|一手成交).*?[:：]\s*\(\d+\)/) || header.match(/(.*?)(一手市場成交|一手成交)/); if(dateMatch) { dateStr = dateMatch[1].trim(); } let validBlocks = []; let totalCount = 0; blocks.forEach(block => { if(!block.trim()) return; let lines = block.split('\n').map(l => l.trim()).filter(l => l); if(lines.length === 0) return; let projLine = lines[0]; let upperProj = projLine.toUpperCase().replace(/\s+/g, ''); let projectCode = null; for (const [key, code] of Object.entries(RUNWAY_KEYWORDS)) { if (upperProj.includes(key)) { projectCode = code; break; } } if (projectCode) { let agencies = []; let currentAgency = null; let standaloneUnits = []; for (let i = 1; i < lines.length; i++) { let line = lines[i]; let agencyMatch = line.match(/^(.*?)([:：])\s*(\d+)\s*$/); if (agencyMatch && !line.includes('(') && !line.includes('（')) { currentAgency = { prefix: agencyMatch[1], colon: agencyMatch[2], units: [] }; agencies.push(currentAgency); } else { if (currentAgency) { currentAgency.units.push(line); } else { standaloneUnits.push(line); } } } let processedStandalone = []; let projectUnitCount = 0; const processUnit = (line) => { projectUnitCount++; let cleanLine = line.replace(/[期座室樓層]/g, ''); let prefix = cleanLine.split(/[\u4e00-\u9fa5]/)[0]; let rawUnitToken = prefix.trim().split(/\s+/)[0]; let unitToken = normalizeUnit(rawUnitToken); let info = searchFlatMix(projectCode, unitToken); return info ? `${line} ${info}` : line; }; standaloneUnits.forEach(u => processedStandalone.push(processUnit(u))); agencies.forEach(ag => { let processed = []; ag.units.forEach(u => processed.push(processUnit(u))); ag.processedUnits = processed; ag.actualCount = ag.units.length; }); let origCountMatch = projLine.match(/[:：]\s*(\d+)/); let origCount = origCountMatch ? parseInt(origCountMatch[1], 10) : 0; let finalProjCount = projectUnitCount > 0 ? projectUnitCount : origCount; totalCount += finalProjCount; let newProjLine = projLine; if (projLine.match(/[:：]\s*\d+/)) { newProjLine = projLine.replace(/([:：]\s*)\d+/, `$1${finalProjCount}`); } else { newProjLine = `${projLine}：${finalProjCount}`; } let blockLines = [newProjLine, ...processedStandalone]; agencies.forEach(ag => { if (ag.actualCount > 0) { blockLines.push(`${ag.prefix}${ag.colon}${ag.actualCount}`); blockLines.push(...ag.processedUnits); } else if (ag.actualCount === 0 && projectUnitCount === 0) { blockLines.push(`${ag.prefix}${ag.colon}${origCountMatch ? origCount : 1}`); } }); validBlocks.push(blockLines.join('\n')); } }); let finalText = `${dateStr}一手跑道區成交：(${totalCount})\n${separator}\n`; finalText += validBlocks.join(`\n${separator}\n`); if(validBlocks.length > 0) { finalText += `\n${separator}`; } document.getElementById('filteredTransactions').value = finalText; }
+    function copyToClipboard(elementId) { const t = document.getElementById(elementId); if(!t.value || t.value.includes("請先上載")) { alert("未能複製空內容"); return; } t.select(); t.setSelectionRange(0, 99999); navigator.clipboard.writeText(t.value).then(() => alert("✅ 已複製")).catch(() => alert("請手動複製")); }
 
-    function normalizeUnit(s) {
-        s = s.toUpperCase().replace(/\s+/g, '');
-        if (s.includes('-')) {
-            let parts = s.split('-');
-            if (parts.length >= 3) {
-                if (/^[A-Z]+$/.test(parts[1]) && /^\d+[A-Z]?$/.test(parts[2])) {
-                    s = parts[0] + parts[2] + parts[1];
-                }
-            }
-        } else {
-            let match = s.match(/^(\d+[A-Z]?|[A-Z]+\d+)([A-Z]+)(\d+[A-Z]?)$/);
-            if (match) { s = match[1] + match[3] + match[2]; }
-        }
-        return s.replace(/[^A-Z0-9]/g, ''); 
-    }
-
-    function searchFlatMix(projectCode, cleanUnit) {
-        if (!flatMixData || flatMixData.length === 0 || !cleanUnit) return null;
-        let fallbackMatch = null;
-        for (let i = 1; i < flatMixData.length; i++) {
-            let row = flatMixData[i];
-            if (!row || row.length < 12) continue;
-            let rowCode = (row[0] || "").toString().toUpperCase().trim();
-            if (rowCode === projectCode) {
-                let csvUnitRaw = (row[1] || "").toString().toUpperCase();
-                let cleanCSV = csvUnitRaw.replace(/[^A-Z0-9]/g, '');
-                let layout = row[9] || "未知戶型";  
-                let view = row[11] || "未知景觀";   
-                let result = `（${view}--${layout}）`;
-
-                if (cleanCSV === cleanUnit) { return result; }
+    // ==========================================
+    // 7. 新增：688 每周銷售概況 自動解析模組
+    // ==========================================
+    document.getElementById('file688').addEventListener('change', function(e) {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                let targetData = null;
                 
-                if (!fallbackMatch) {
-                    if (cleanCSV.endsWith(cleanUnit) && cleanCSV.length - cleanUnit.length <= 2) {
-                        fallbackMatch = result;
-                    } else if (cleanCSV.includes(cleanUnit) && cleanCSV.length - cleanUnit.length <= 2) {
-                        fallbackMatch = result;
-                    }
-                }
-            }
-        }
-        return fallbackMatch;
-    }
-
-    function filterTransactions() {
-        const rawText = document.getElementById('rawTransactions').value;
-        if(!rawText.trim()) return;
-
-        const separator = "🔸🔹🔸🔹🔸🔹";
-        const blocks = rawText.split(/🔸🔹🔸🔹🔸🔹/);
-        if(blocks.length < 2) { alert("未能偵測到分隔線(🔸🔹🔸🔹🔸🔹)，請確保貼上完整訊息。"); return; }
-
-        const header = blocks.shift(); 
-        let dateStr = "今日";
-        const dateMatch = header.match(/(.*?)(一手市場成交|一手成交).*?[:：]\s*\(\d+\)/) || header.match(/(.*?)(一手市場成交|一手成交)/);
-        if(dateMatch) { dateStr = dateMatch[1].trim(); }
-
-        let validBlocks = [];
-        let totalCount = 0;
-
-        blocks.forEach(block => {
-            if(!block.trim()) return;
-            let lines = block.split('\n').map(l => l.trim()).filter(l => l);
-            if(lines.length === 0) return;
-            
-            let projLine = lines[0]; 
-            let upperProj = projLine.toUpperCase().replace(/\s+/g, '');
-            
-            let projectCode = null;
-            for (const [key, code] of Object.entries(RUNWAY_KEYWORDS)) {
-                if (upperProj.includes(key)) { projectCode = code; break; }
-            }
-            
-            if (projectCode) {
-                let agencies = [];
-                let currentAgency = null;
-                let standaloneUnits = [];
-                
-                for (let i = 1; i < lines.length; i++) {
-                    let line = lines[i];
-                    let agencyMatch = line.match(/^(.*?)([:：])\s*(\d+)\s*$/);
-                    if (agencyMatch && !line.includes('(') && !line.includes('（')) {
-                        currentAgency = { prefix: agencyMatch[1], colon: agencyMatch[2], units: [] };
-                        agencies.push(currentAgency);
-                    } else {
-                        if (currentAgency) {
-                            currentAgency.units.push(line);
-                        } else {
-                            standaloneUnits.push(line);
+                // 掃描全 Excel，尋找包含「項目」、「售出數量」、「合約額」嘅標題行
+                for (let sheetName of workbook.SheetNames) {
+                    const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {header: 1});
+                    for (let i = 0; i < data.length; i++) {
+                        const rowStr = data[i].join('');
+                        if (rowStr.includes('項目') && rowStr.includes('售出數量') && rowStr.includes('合約額')) {
+                            targetData = { sheetData: data, startRow: i };
+                            break;
                         }
                     }
+                    if (targetData) break;
                 }
                 
-                let processedStandalone = [];
-                let projectUnitCount = 0;
-                
-                const processUnit = (line) => {
-                    projectUnitCount++;
-                    let cleanLine = line.replace(/[期座室樓層]/g, '');
-                    let prefix = cleanLine.split(/[\u4e00-\u9fa5]/)[0]; 
-                    let rawUnitToken = prefix.trim().split(/\s+/)[0];   
-                    
-                    let unitToken = normalizeUnit(rawUnitToken);        
-                    let info = searchFlatMix(projectCode, unitToken);   
-                    
-                    return info ? `${line} ${info}` : line;
-                };
-
-                standaloneUnits.forEach(u => processedStandalone.push(processUnit(u)));
-                
-                agencies.forEach(ag => {
-                    let processed = [];
-                    ag.units.forEach(u => processed.push(processUnit(u)));
-                    ag.processedUnits = processed;
-                    ag.actualCount = ag.units.length; 
-                });
-                
-                let origCountMatch = projLine.match(/[:：]\s*(\d+)/);
-                let origCount = origCountMatch ? parseInt(origCountMatch[1], 10) : 0;
-                let finalProjCount = projectUnitCount > 0 ? projectUnitCount : origCount;
-                totalCount += finalProjCount; 
-                
-                let newProjLine = projLine;
-                if (projLine.match(/[:：]\s*\d+/)) {
-                    newProjLine = projLine.replace(/([:：]\s*)\d+/, `$1${finalProjCount}`);
+                if (targetData) {
+                    render688Table(targetData.sheetData, targetData.startRow);
                 } else {
-                    newProjLine = `${projLine}：${finalProjCount}`;
+                    alert("❌ 找不到目標表格！請確保 Excel 內包含「項目」、「售出數量」、「合約額」等標題。");
                 }
-                
-                let blockLines = [newProjLine, ...processedStandalone];
-                agencies.forEach(ag => {
-                    if (ag.actualCount > 0) {
-                        blockLines.push(`${ag.prefix}${ag.colon}${ag.actualCount}`);
-                        blockLines.push(...ag.processedUnits);
-                    } else if (ag.actualCount === 0 && projectUnitCount === 0) {
-                        blockLines.push(`${ag.prefix}${ag.colon}${origCountMatch ? origCount : 1}`);
-                    }
-                });
-                
-                validBlocks.push(blockLines.join('\n'));
+            } catch(err) {
+                alert("❌ 讀取 Excel 失敗");
             }
-        });
+        };
+        reader.readAsArrayBuffer(file);
+    });
 
-        let finalText = `${dateStr}一手跑道區成交：(${totalCount})\n${separator}\n`;
-        finalText += validBlocks.join(`\n${separator}\n`);
-        if(validBlocks.length > 0) { finalText += `\n${separator}`; }
-
-        document.getElementById('filteredTransactions').value = finalText;
+    function formatNumber(num, isPercentage = false) {
+        if (num === undefined || num === null || num === "") return "-";
+        let n = parseFloat(num);
+        if (isNaN(n)) return num; // 唔係數字就直出 (如 "2伙")
+        if (isPercentage && n <= 1) return (n * 100).toFixed(0) + '%';
+        // 加上逗號格式化貨幣
+        return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
-    function copyToClipboard(elementId) {
-        const t = document.getElementById(elementId);
-        if(!t.value || t.value.includes("請先上載")) { alert("未能複製空內容"); return; }
-        t.select(); t.setSelectionRange(0, 99999); navigator.clipboard.writeText(t.value).then(() => alert("✅ 已複製")).catch(() => alert("請手動複製"));
+    function render688Table(data, startRow) {
+        const headers = data[startRow];
+        
+        // 尋找各列的索引位置
+        const idxNo = headers.findIndex(h => typeof h === 'string' && h.includes('序號'));
+        const idxProj = headers.findIndex(h => typeof h === 'string' && h.includes('項目'));
+        const idxQty = headers.findIndex(h => typeof h === 'string' && h.includes('售出數量'));
+        const idxAmt = headers.findIndex(h => typeof h === 'string' && h.includes('合約額'));
+        const idxPrice = headers.findIndex(h => typeof h === 'string' && h.includes('呎價'));
+        const idxStake = headers.findIndex(h => typeof h === 'string' && h.includes('我司權益'));
+        const idxRealAmt = headers.findIndex(h => typeof h === 'string' && h.includes('實益數'));
+
+        let html = '<table id="sales688Table" class="sales-table">';
+        html += '<thead><tr><th>序號</th><th>項目</th><th>售出數量</th><th>合約額 (HK$)</th><th>呎價 (HK$)</th><th>我司權益</th><th>實益數 (HK$)</th></tr></thead><tbody>';
+
+        // 逐行往下讀取，直到無合約額或空白行為止
+        for (let i = startRow + 1; i < data.length; i++) {
+            const row = data[i];
+            if (!row) continue;
+            
+            // 只要合約額或者項目有字，就算係有效資料
+            const projVal = row[idxProj];
+            const amtVal = row[idxAmt];
+            
+            if (amtVal === undefined && projVal === undefined) break; // 遇到空白行停止
+
+            const no = row[idxNo] || "";
+            const proj = projVal || "";
+            const qty = row[idxQty] || "";
+            const amt = formatNumber(amtVal);
+            const price = formatNumber(row[idxPrice]);
+            const stake = formatNumber(row[idxStake], true);
+            const realAmt = formatNumber(row[idxRealAmt]);
+            
+            // 如果係總計行，加強顯示
+            let trClass = "";
+            if (proj.toString().includes("總計") || proj.toString().includes("合計")) trClass = 'class="total-row"';
+            
+            html += `<tr ${trClass}>
+                <td>${no}</td><td>${proj}</td><td>${qty}</td><td>${amt}</td><td>${price}</td><td>${stake}</td><td>${realAmt}</td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+        document.getElementById('table688Container').innerHTML = html;
+    }
+
+    function export688Table() {
+        const table = document.getElementById('sales688Table');
+        if (!table) { alert("請先上載 688 Excel 以生成表格！"); return; }
+        const wb = XLSX.utils.table_to_book(table, {sheet: "銷售概況"});
+        XLSX.writeFile(wb, '688每周銷售概況.xlsx');
     }
 
     if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed: ', err)); }); }
